@@ -1,6 +1,6 @@
 # External dependencies (installed by setup_env.sh)
-MG5_aMC_v2_5_5/
-lhapdf/
+MG5_aMC_v2_5_5
+lhapdf
 LHAPDF-6.2.1/
 *.sif
 
