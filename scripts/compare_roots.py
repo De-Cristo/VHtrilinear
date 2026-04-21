@@ -46,7 +46,13 @@ def load_tree(rootfile):
     # read arrays
     event_id = t["event_id"].array(library="np")
     h_pt = t["h_pt"].array(library="np")
-    z_pt = t["z_pt"].array(library="np")
+    # some converters write v_pt (generic vector boson), others z_pt
+    if "z_pt" in t.keys():
+        z_pt = t["z_pt"].array(library="np")
+    elif "v_pt" in t.keys():
+        z_pt = t["v_pt"].array(library="np")
+    else:
+        raise KeyError("Neither 'z_pt' nor 'v_pt' found in " + rootfile)
     return event_id, h_pt, z_pt
 
 

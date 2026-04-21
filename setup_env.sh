@@ -4,6 +4,7 @@
 set -euo pipefail
 
 BASEDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$BASEDIR/stage3_fixes.sh"
 echo "============================================="
 echo " VHtrilinear Environment Setup"
 echo " Working directory: $BASEDIR"
@@ -26,12 +27,10 @@ fi
 # ── 2. Container image ──
 echo ""
 echo "── Checking container image ──"
-if [ -f "$BASEDIR/trilinear_latest.sif" ]; then
-    check_skip "trilinear_latest.sif"
+if [ -f "$BASEDIR/trilinear-boost.sif" ]; then
+    check_skip "trilinear-boost.sif"
 else
-    echo "  Pulling container (this may take a few minutes)..."
-    apptainer pull "$BASEDIR/trilinear_latest.sif" docker://charlotteknight/trilinear:latest
-    check_ok "Container pulled"
+    check_fail "trilinear-boost.sif not found. Build it locally with: apptainer build trilinear-boost.sif docker://lordcristo/trilinear-boost"
 fi
 
 # ── 3. LHAPDF 6.2.1 ──
@@ -61,10 +60,8 @@ fi
 # Fix LHAPDF URL base for PDF set downloads
 LHAPDF_SCRIPT="$LHAPDF_PREFIX/bin/lhapdf"
 if [ -f "$LHAPDF_SCRIPT" ]; then
-    if grep -q "hepforge.org" "$LHAPDF_SCRIPT" 2>/dev/null; then
-        sed -i "s|http.*hepforge.org/[^ '\"]*|https://lhapdfsets.web.cern.ch/lhapdfsets/current|g" "$LHAPDF_SCRIPT"
-        check_ok "Updated LHAPDF URL base to CERN mirror"
-    fi
+    sed -i "s|^urlbase = .*|urlbase = 'https://lhapdfsets.web.cern.ch/lhapdfsets/current/'|" "$LHAPDF_SCRIPT"
+    check_ok "Updated LHAPDF URL base to CERN mirror"
 fi
 
 # ── 4. MG5_aMC_v2_5_5 ──
@@ -80,6 +77,9 @@ else
     rm -f "$BASEDIR/MG5_aMC_v2.5.5.tar.gz"
     check_ok "MG5_aMC_v2_5_5 installed"
 fi
+
+stage3_patch_mg5_boost_wrappers "$MG5DIR"
+check_ok "Patched MG5 PDF wrapper templates for Boost headers"
 
 # ── 5. Configure MG5: lhapdf-config path ──
 echo ""
@@ -203,7 +203,7 @@ echo ""
 echo "============================================="
 echo " Setup complete!"
 echo "============================================="
-echo "  Container:  $BASEDIR/trilinear_latest.sif"
+echo "  Container:  $BASEDIR/trilinear-boost.sif"
 echo "  LHAPDF:     $LHAPDF_PREFIX"
 echo "  MG5:        $MG5DIR"
 echo "  UFO model:  $DEST_MODEL"

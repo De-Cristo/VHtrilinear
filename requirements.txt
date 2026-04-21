@@ -1,0 +1,4 @@
+uproot>=5.0
+numpy
+matplotlib
+awkward>=2.0
