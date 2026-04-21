@@ -42,7 +42,7 @@ The pipeline requires GCC ≥ 4.6.0, MG5_aMC **v2.5.5** specifically, and LHAPDF
 
 | Component | Location |
 |---|---|
-| Container | [trilinear_latest.sif](file:///afs/cern.ch/user/l/lichengz/works_dir/private/selfcoupling/trilinear_latest.sif) |
+| Container | [trilinear-boost.sif](file:///afs/cern.ch/user/l/lichengz/works_dir/private/selfcoupling/trilinear-boost.sif) |
 | LHAPDF 6.2.1 | [LHAPDF-6.2.1/](file:///afs/cern.ch/user/l/lichengz/works_dir/private/selfcoupling/LHAPDF-6.2.1) |
 | Env script | [lhapdf_env.sh](file:///afs/cern.ch/user/l/lichengz/works_dir/private/selfcoupling/lhapdf_env.sh) |
 | MadGraph | [MG5_aMC_v2_5_5/](file:///afs/cern.ch/user/l/lichengz/works_dir/private/selfcoupling/MG5_aMC_v2_5_5) |
@@ -51,7 +51,7 @@ The pipeline requires GCC ≥ 4.6.0, MG5_aMC **v2.5.5** specifically, and LHAPDF
 ```bash
 source lhapdf_env.sh
 # This sets PYTHONPATH, LD_LIBRARY_PATH, PATH, then runs:
-# apptainer run --env ... trilinear_latest.sif
+# apptainer run --env ... trilinear-boost.sif
 ```
 
 ### 2. Generate LO QCD Process (hz_MC)
@@ -125,11 +125,7 @@ Set `True = store_rwgt_info` in `hz_MC/Cards/run_card.dat`, then launch:
 
 ```
 launch hz_MC
-  fixedorder = OFF
-  shower     = OFF
-  reweight   = OFF
-  order      = LO
-  madspin    = OFF
+  noshowerLO
 ```
 
 **Benchmarking settings** (from [run_card.dat](file:///afs/cern.ch/user/l/lichengz/works_dir/private/selfcoupling/trilinear-RW/example_hz/run_card.dat)):
