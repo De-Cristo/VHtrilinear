@@ -16,9 +16,10 @@ proc_hz_me
 # Output artifacts
 output/
 
-# Python
+# Python / Jupyter
 __pycache__/
 *.pyc
+.ipynb_checkpoints/
 
 # System
 .DS_Store
