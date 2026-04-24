@@ -17,6 +17,7 @@ Options:
   --lr         Learning rate                    [default: 0.05]
   --max-depth  Max tree depth                   [default: 6]
   --seed       Random seed                      [default: 42]
+  --gpu        Use GPU for training             [default: False]
 """
 import argparse
 import os
@@ -142,6 +143,11 @@ def train_model(X_train, y_train, X_val, y_val, params):
         'seed': params['seed'],
         'verbosity': 1,
     }
+
+    if params.get('use_gpu'):
+        # For modern XGBoost (>= 2.0) 'device' works well or 'tree_method': 'hist', 'device': 'cuda'
+        xgb_params['tree_method'] = 'hist'
+        xgb_params['device'] = 'cuda'
 
     evals_result = {}
     model = xgb.train(
@@ -324,7 +330,7 @@ def plot_c1_profile(X_test, y_true, y_pred, outdir):
         ax_bot.axhline(1.0, color='red', linestyle='--', linewidth=1)
         ax_bot.set_xlabel(label)
         ax_bot.set_ylabel('Pred/True')
-        ax_bot.set_ylim(0.9, 1.1)
+        ax_bot.set_ylim(0.99, 1.01)
         ax_bot.minorticks_on()
         ax_bot.tick_params(direction='in', top=True, right=True)
 
@@ -389,6 +395,7 @@ def main():
     p.add_argument('--lr', type=float, default=0.05)
     p.add_argument('--max-depth', type=int, default=6)
     p.add_argument('--seed', type=int, default=42)
+    p.add_argument('--gpu', action='store_true', help='Use GPU for XGBoost training')
     args = p.parse_args()
 
     os.makedirs(args.outdir, exist_ok=True)
@@ -414,7 +421,14 @@ def main():
         'lr': args.lr,
         'max_depth': args.max_depth,
         'seed': args.seed,
+        'use_gpu': args.gpu,
     }
+    
+    if args.gpu:
+        print("  Using GPU for training (device='cuda')")
+    else:
+        print("  Using CPU for training")
+        
     model, evals_result = train_model(X_train, y_train, X_test, y_test, params)
     print(f"  Best iteration: {model.best_iteration}")
 
@@ -457,6 +471,29 @@ def main():
     model_path = os.path.join(args.outdir, 'c1_regressor.json')
     model.save_model(model_path)
     print(f"  [✓] {model_path}")
+
+    # Save ONNX model if onnxmltools is available
+    try:
+        import onnxmltools
+        from onnxmltools.convert.common.data_types import FloatTensorType
+        onnx_model_path = os.path.join(args.outdir, 'c1_regressor.onnx')
+        initial_types = [('float_input', FloatTensorType([None, len(FEATURES)]))]
+        # Convert the XGBoost Booster to ONNX
+        # onnxmltools parser strictly expects feature names to be 'f0', 'f1', etc.
+        original_names = model.feature_names
+        model.feature_names = [f'f{i}' for i in range(len(FEATURES))]
+        
+        onnx_model = onnxmltools.convert_xgboost(model, initial_types=initial_types)
+        onnxmltools.utils.save_model(onnx_model, onnx_model_path)
+        print(f"  [✓] {onnx_model_path} (ONNX format)")
+        
+        # Restore names
+        if original_names is not None:
+            model.feature_names = original_names
+            
+    except ImportError:
+        print("  [!] Skipping ONNX export: 'onnxmltools' not installed.")
+        print("      To enable: pip install onnxmltools")
 
     # ── Step 5: Plots ──
     print("\n── Step 5: Generating evaluation plots ──")
