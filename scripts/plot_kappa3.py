@@ -31,9 +31,10 @@ mpl.rcParams.update({
 mpl.rcParams['text.usetex'] = True
 
 
-def find_variant_files(base_path):
+def find_variant_files(base_path, exclude_pattern=None):
     """Return sorted list of files that share the base prefix.
     base_path is a path to the central file (e.g. /path/events_500k_13p6_rwgt.root)
+    exclude_pattern: if set, skip files whose basename contains this substring.
     """
     dname = os.path.dirname(base_path) or '.'
     fname = os.path.basename(base_path)
@@ -46,6 +47,8 @@ def find_variant_files(base_path):
         if not f.lower().endswith('.root'):
             continue
         if f.startswith(base):
+            if exclude_pattern and exclude_pattern in f:
+                continue
             candidates.append(os.path.join(dname, f))
     candidates = sorted(candidates)
     return candidates
@@ -92,9 +95,9 @@ def parse_l3_from_name(fname, base_name):
 
 
 
-def process_and_plot(nlo_base_file, lo_file, feature, id_branch='event_id', weight_branch='weight', nbins=30, pt_max=300.0, outname=None):
+def process_and_plot(nlo_base_file, lo_file, feature, id_branch='event_id', weight_branch='weight', nbins=30, pt_max=300.0, outname=None, exclude_pattern=None):
     # find all NLO variants from the NLO base file prefix
-    nlo_files = find_variant_files(nlo_base_file)
+    nlo_files = find_variant_files(nlo_base_file, exclude_pattern=exclude_pattern)
     if not nlo_files:
         raise SystemExit('No files found matching NLO base')
 

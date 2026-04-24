@@ -191,7 +191,8 @@ def step_plots(lo_root, rw_root, plotdir, kappas, feature):
             lo_file=lo_root,
             feature=feature,
             nbins=30,
-            pt_max=300.0
+            pt_max=300.0,
+            exclude_pattern='nloew'
         )
         os.chdir(orig_cwd2)
         _ok(f"kappa3 overlay: full BSM variants ({feature})")
