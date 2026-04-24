@@ -153,43 +153,72 @@ def step_plots(lo_root, rw_root, plotdir, kappas, feature):
     os.chdir(orig_cwd)
     _ok(f"compare_scatter.png, compare_hpt_hist.png, compare_zpt_hist.png")
 
-    # 3e. Multi-κ_λ overlay (plot_kappa3.py)
-    # Find the base l3corr file (NLO-corrected LO, produced once per run)
+    # 3e–3g. Multi-κ_λ overlay plots (plot_kappa3.py)
+    #
+    # plot_kappa3.find_variant_files() discovers files sharing the same prefix.
+    # add_l3_weight produces:
+    #   - events_lo_l3corr.root       (NLO-corrected LO, prefix: events_lo_l3corr)
+    #   - events_l3corr_<κ>.root      (full BSM, prefix: events_l3corr)
+    #   - events_l3corr_nloew_<κ>.root (NLO EW only, prefix: events_l3corr_nloew)
+    #
+    # The NLO-corrected LO file has a DIFFERENT prefix from the BSM variants!
+    # Fix: symlink events_l3corr.root → events_lo_l3corr.root so they share
+    # prefix "events_l3corr" and find_variant_files discovers everything.
     rw_dir = os.path.dirname(rw_root)
     rw_base = os.path.basename(rw_root)
-    if rw_base.lower().endswith('.root'):
-        rw_stem = rw_base[:-5]
-    else:
-        rw_stem = rw_base
+    rw_stem = rw_base[:-5] if rw_base.lower().endswith('.root') else rw_base
+    l3corr_stem = rw_stem[:-5] + '_l3corr' if rw_stem.endswith('_rwgt') else rw_stem + '_l3corr'
 
-    if rw_stem.endswith('_rwgt'):
-        l3corr_stem = rw_stem[:-5] + '_l3corr'
-    else:
-        l3corr_stem = rw_stem + '_l3corr'
-
-    # The base l3corr file (without kappa suffix, written once writing any kappa)
-    # add_l3_weight also writes <lo_base>_l3corr.root
-    lo_dir = os.path.dirname(lo_root)
     lo_stem = os.path.basename(lo_root)
-    if lo_stem.lower().endswith('.root'):
-        lo_stem = lo_stem[:-5]
-    lo_l3corr = os.path.join(lo_dir, f"{lo_stem}_l3corr.root")
+    lo_stem = lo_stem[:-5] if lo_stem.lower().endswith('.root') else lo_stem
+    lo_l3corr = os.path.join(os.path.dirname(lo_root), f"{lo_stem}_l3corr.root")
 
-    if os.path.isfile(lo_l3corr):
-        # chdir to plotdir so output PNGs land there
+    # Create symlink: events_l3corr.root → events_lo_l3corr.root
+    l3corr_base = os.path.join(rw_dir, f"{l3corr_stem}.root")
+    if os.path.isfile(lo_l3corr) and not os.path.exists(l3corr_base):
+        os.symlink(os.path.abspath(lo_l3corr), l3corr_base)
+        _ok(f"Symlinked {os.path.basename(l3corr_base)} → {os.path.basename(lo_l3corr)}")
+
+    # 3e. Full BSM overlay: uses events_l3corr.root as base, discovers events_l3corr_*.root
+    if os.path.exists(l3corr_base):
         orig_cwd2 = os.getcwd()
         os.chdir(plotdir)
+        # find_variant_files will match: events_l3corr.root, events_l3corr_0p0.root, etc.
+        # but also events_l3corr_nloew_*.root — filter those out isn't needed because
+        # the base plot shows all variants which is useful.
         plot_kappa3.process_and_plot(
-            nlo_base_file=lo_l3corr,
+            nlo_base_file=l3corr_base,
             lo_file=lo_root,
             feature=feature,
             nbins=30,
             pt_max=300.0
         )
         os.chdir(orig_cwd2)
-        _ok(f"kappa3 overlay plots ({feature})")
+        _ok(f"kappa3 overlay: full BSM variants ({feature})")
     else:
-        _warn(f"Skipping kappa3 overlay — l3corr base file not found: {lo_l3corr}")
+        _warn(f"Skipping BSM kappa3 overlay — base not found: {l3corr_base}")
+
+    # 3f. NLO EW-only overlay: need a base with prefix "events_l3corr_nloew"
+    # Create symlink events_l3corr_nloew.root → events_lo_l3corr.root as baseline
+    nloew_base = os.path.join(rw_dir, f"{l3corr_stem}_nloew.root")
+    if os.path.isfile(lo_l3corr) and not os.path.exists(nloew_base):
+        os.symlink(os.path.abspath(lo_l3corr), nloew_base)
+        _ok(f"Symlinked {os.path.basename(nloew_base)} → {os.path.basename(lo_l3corr)}")
+
+    if os.path.exists(nloew_base):
+        orig_cwd3 = os.getcwd()
+        os.chdir(plotdir)
+        plot_kappa3.process_and_plot(
+            nlo_base_file=nloew_base,
+            lo_file=lo_root,
+            feature=feature,
+            nbins=30,
+            pt_max=300.0
+        )
+        os.chdir(orig_cwd3)
+        _ok(f"kappa3 overlay: NLO EW-only variants ({feature})")
+    else:
+        _warn("Skipping NLO EW kappa3 overlay — no nloew base found")
 
 
 # ─────────────────────────────────────────────────────

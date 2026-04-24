@@ -68,16 +68,28 @@ def load_tree_arrays(path, id_branch='event_id', weight_branch='weight', feature
 def parse_l3_from_name(fname, base_name):
     """Attempt to extract l3 value from filename suffix. If not possible, return filename tail.
     Example: base 'events_..._rwgt' and fname 'events_..._rwgt_m10p0.root' -> '-10.0'
+    Returns a LaTeX-safe string suitable for use as a legend label.
     """
     bn = os.path.basename(fname)
     if bn.lower().endswith('.root'):
         bn = bn[:-5]
     if not bn.startswith(base_name + '_'):
-        return os.path.basename(fname)
+        # fallback: escape underscores for LaTeX
+        return os.path.basename(fname).replace('_', r'\_')
     suff = bn[len(base_name)+1:]
+    # strip "nloew_" prefix if present (e.g. "nloew_m10p0" -> "m10p0")
+    if suff.startswith('nloew_'):
+        suff = suff[6:]
     # convert m10p0 -> -10.0, 1p0 -> 1.0
     s = suff.replace('m', '-', 1).replace('p', '.', 1)
-    return s
+    # format as a proper kappa label
+    try:
+        val = float(s)
+        return rf'$\kappa_{{\lambda}} = {val:g}$'
+    except ValueError:
+        # fallback: escape underscores for LaTeX
+        return s.replace('_', r'\_')
+
 
 
 def process_and_plot(nlo_base_file, lo_file, feature, id_branch='event_id', weight_branch='weight', nbins=30, pt_max=300.0, outname=None):
@@ -107,9 +119,15 @@ def process_and_plot(nlo_base_file, lo_file, feature, id_branch='event_id', weig
     # compute base histogram from base NLO file
     hist_base_nlo, _ = np.histogram(feat_base, bins=bins, density=True, weights=w_base)
     # plot base on top
-    ax1_top.step(bins[:-1], hist_base_nlo, where='post', color='black', linewidth=1.8, label='NLO base')
+    ax1_top.step(bins[:-1], hist_base_nlo, where='post', color='black', linewidth=1.8, label='SM EW NLO (base)')
 
     for idx, fpath in enumerate(nlo_files):
+        # Skip the base file in the loop since we already plotted it as the baseline (black line)
+        if os.path.abspath(fpath) == os.path.abspath(nlo_base_file):
+            # Still plot a flat line at 1.0 for the ratio bottom panel, but don't re-plot the top density
+            ax1_bot.hlines(1.0, bins[0], bins[-1], color='black', linewidth=1.4, linestyle='-')
+            continue
+
         try:
             ids_f, w_f, feat_f = load_tree_arrays(fpath, id_branch=id_branch, weight_branch=weight_branch, feature=feature)
         except KeyError as e:
@@ -122,21 +140,16 @@ def process_and_plot(nlo_base_file, lo_file, feature, id_branch='event_id', weig
         color = colors[idx % len(colors)]
         label = parse_l3_from_name(fpath, base_name)
 
-        if os.path.abspath(fpath) == os.path.abspath(nlo_base_file):
-            ax1_top.step(bins[:-1], hist_f, where='post', color=color, linewidth=1.8, label=f'SM EW NLO')
-        else:
-            ax1_top.step(bins[:-1], hist_f, where='post', color=color, linewidth=1.2, alpha=0.9, label=label)
+        ax1_top.step(bins[:-1], hist_f, where='post', color=color, linewidth=1.2, alpha=0.9, label=label)
 
         # bottom: ratio hist_f / hist_base_nlo
         with np.errstate(divide='ignore', invalid='ignore'):
             ratio_bins = np.where(hist_base_nlo != 0.0, hist_f / hist_base_nlo, np.nan)
-        ax1_bot.step(bins[:-1], ratio_bins, where='post', color=color, linewidth=1.4 if os.path.abspath(fpath)!=os.path.abspath(nlo_base_file) else 2.0)
+        ax1_bot.step(bins[:-1], ratio_bins, where='post', color=color, linewidth=1.4)
+        
         # inclusive mean (binwise)
         incl = np.nanmean(ratio_bins)
-        if os.path.abspath(fpath) == os.path.abspath(nlo_base_file):
-            ax1_bot.hlines(1.0, bins[0], bins[-1], color='black', linewidth=1.4, linestyle='-')
-        else:
-            ax1_bot.hlines(incl, bins[0], bins[-1], color=color, linewidth=1.2, linestyle='--')
+        ax1_bot.hlines(incl, bins[0], bins[-1], color=color, linewidth=1.2, linestyle='--')
 
     ax1_top.set_ylabel('Density', fontsize=12)
     ax1_top.set_xlim(bins[0], bins[-1])
