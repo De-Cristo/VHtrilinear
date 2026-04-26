@@ -1,0 +1,25 @@
+{
+  "RMSE [%]": 0.003968196436913122,
+  "MAE [%]": 0.0029522198490343045,
+  "R2": 0.9999624918842764,
+  "Mean C1 [%]": 1.1842554136690617,
+  "Relative RMSE": 0.003350794424168052,
+  "n_train": 400000,
+  "n_test": 100000,
+  "best_iteration": 999,
+  "features": [
+    "h_pt",
+    "v_pt",
+    "vh_m",
+    "cos_theta_star",
+    "h_y",
+    "vh_delta_eta"
+  ],
+  "hyperparams": {
+    "n_rounds": 1000,
+    "lr": 0.03,
+    "max_depth": 5,
+    "seed": 42,
+    "use_gpu": true
+  }
+}
