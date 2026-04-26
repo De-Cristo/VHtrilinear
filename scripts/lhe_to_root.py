@@ -180,11 +180,8 @@ def boost(vec, beta):
     E = float(vec[0])
     p = vec[1:]
     bp = float(np.dot(beta, p))
-    p_par = beta * bp
-    p_perp = p - p_par
-    p_par_p = -gamma * beta * E + ((gamma - 1.0) / b2) * p_par
     Ep = gamma * (E - bp)
-    p_star = p_perp + p_par_p
+    p_star = p + beta * ( (gamma - 1.0) * bp / b2 - gamma * E )
     return np.array([Ep, p_star[0], p_star[1], p_star[2]])
 
 

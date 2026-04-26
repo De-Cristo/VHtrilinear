@@ -77,6 +77,31 @@ Three commands cover the normal workflow:
 
 ---
 
+## Machine Learning Pipeline (C₁ Regressor)
+
+To apply the C₁ correction directly to reconstructed events (e.g., NanoAOD) without requiring OLP reweighting, we train an XGBoost regressor to predict C₁ purely from event kinematics.
+
+### 1. Model Training
+Train the XGBoost model using the generated LO and reweighted ROOT files:
+```bash
+python3 scripts/train_c1_regressor.py
+```
+This generates the trained model (`output/c1_regressor/c1_regressor.json`), an ONNX export (`c1_regressor.onnx`), and training validation profile plots.
+
+### 2. NanoAOD Prediction & Validation
+Apply the trained regressor to NanoAOD files using their `LHEPart` branches:
+```bash
+python3 scripts/predict_c1_nano.py \
+    --input nanoAOD_temp/*.root \
+    --model output/c1_regressor/c1_regressor.json \
+    --validate \
+    --lo-file output/events_lo.root \
+    --rw-file output/events_rwgt.root
+```
+The `--validate` flag performs a closure test, generating kinematic profile plots comparing the NanoAOD predictions back against the ground-truth LO sample in `output/plots/nano_validation/`.
+
+---
+
 ## Output Layout
 
 All generated artifacts live under `output/`:
