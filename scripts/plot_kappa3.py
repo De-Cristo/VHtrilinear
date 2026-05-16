@@ -95,7 +95,7 @@ def parse_l3_from_name(fname, base_name):
 
 
 
-def process_and_plot(nlo_base_file, lo_file, feature, id_branch='event_id', weight_branch='weight', nbins=30, pt_max=300.0, outname=None, exclude_pattern=None):
+def process_and_plot(nlo_base_file, lo_file, feature, id_branch='event_id', weight_branch='weight', nbins=30, pt_max=300.0, outname=None, exclude_pattern=None, process_label='ZH (13.6 TeV)', vector_label='Z'):
     # find all NLO variants from the NLO base file prefix
     nlo_files = find_variant_files(nlo_base_file, exclude_pattern=exclude_pattern)
     if not nlo_files:
@@ -163,8 +163,8 @@ def process_and_plot(nlo_base_file, lo_file, feature, id_branch='event_id', weig
     ax1_bot.set_ylabel('BSM/SM NLO($\lambda_{3})$', fontsize=12)
     if feature == 'h_pt':
         xlabel = r'$p_{T}(H)$ [GeV]'
-    elif feature == 'z_pt':
-        xlabel = r'$p_{T}(Z)$ [GeV]'
+    elif feature == 'z_pt' or feature == 'v_pt':
+        xlabel = rf'$p_{{T}}({vector_label})$ [GeV]'
     else:
         xlabel = feature
     ax1_bot.set_xlabel(xlabel, fontsize=12)
@@ -173,7 +173,7 @@ def process_and_plot(nlo_base_file, lo_file, feature, id_branch='event_id', weig
 
     fig1.text(0.12, 0.96, r'\textbf{CMS}', fontsize=14, va='top')
     fig1.text(0.22, 0.96, r'\textit{Simulation}', fontsize=11, va='top')
-    fig1.text(0.82, 0.96, r'{ZH (13.6 TeV)}', fontsize=11, va='top')
+    fig1.text(0.82, 0.96, rf'{{{process_label}}}', fontsize=11, va='top')
     plt.tight_layout()
     out1 = base_name + '_nlo_only.png' if outname is None else outname.replace('.png', '_nlo_only.png')
     plt.subplots_adjust(hspace=0.08, left=0.10, right=0.96, top=0.92, bottom=0.10)
@@ -224,7 +224,7 @@ def process_and_plot(nlo_base_file, lo_file, feature, id_branch='event_id', weig
 
     fig2.text(0.12, 0.96, r'\textbf{CMS}', fontsize=14, va='top')
     fig2.text(0.22, 0.96, r'\textit{Simulation}', fontsize=11, va='top')
-    fig2.text(0.82, 0.96, r'{ZH (13.6 TeV)}', fontsize=11, va='top')
+    fig2.text(0.82, 0.96, rf'{{{process_label}}}', fontsize=11, va='top')
     plt.tight_layout()
     out2 = base_name + '_vs_lo.png' if outname is None else outname.replace('.png', '_vs_lo.png')
     plt.subplots_adjust(hspace=0.08, left=0.10, right=0.96, top=0.92, bottom=0.10)
@@ -242,9 +242,11 @@ def main():
     p.add_argument('--weight-branch', default='weight')
     p.add_argument('--nbins', type=int, default=30)
     p.add_argument('--pt-max', type=float, default=300.0)
+    p.add_argument('--process-label', default='ZH (13.6 TeV)')
+    p.add_argument('--vector-label', default='Z')
     args = p.parse_args()
 
-    process_and_plot(args.nlo_base, args.lo_file, args.feature, id_branch=args.id_branch, weight_branch=args.weight_branch, nbins=args.nbins, pt_max=args.pt_max)
+    process_and_plot(args.nlo_base, args.lo_file, args.feature, id_branch=args.id_branch, weight_branch=args.weight_branch, nbins=args.nbins, pt_max=args.pt_max, process_label=args.process_label, vector_label=args.vector_label)
 
 
 if __name__ == '__main__':

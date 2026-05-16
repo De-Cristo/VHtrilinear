@@ -38,6 +38,8 @@ def main():
     p.add_argument('--out', default='C1_vs_pt.png')
     p.add_argument('--pt-max', type=float, default=500.0)
     p.add_argument('--nbins', type=int, default=20)
+    p.add_argument('--process-label', default='ZH (13.6 TeV)')
+    p.add_argument('--vector-label', default='Z')
     args = p.parse_args()
 
     idA, wA, hptA = load_tree(args.fileA)

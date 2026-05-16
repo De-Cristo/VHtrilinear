@@ -38,7 +38,7 @@ def load_tree(rootfile, varname='h_pt'):
     return eid, w, pt
 
 
-def process_and_plot(fileA, fileB, varname, outname, args):
+def process_and_plot(fileA, fileB, varname, outname, args, process_label='ZH (13.6 TeV)', vector_label='Z'):
     """Load variable `varname` from both files and produce the two-panel plot saved to outname."""
     try:
         idA, wA, ptA = load_tree(fileA, varname=varname)
@@ -195,7 +195,7 @@ def process_and_plot(fileA, fileB, varname, outname, args):
     # CMS labels on top-left of figure (use fig coordinates)
     fig.text(0.12, 0.96, r'\textbf{CMS}', fontsize=14, va='top')
     fig.text(0.22, 0.96, r'\textit{Simulation}', fontsize=11, va='top')
-    fig.text(0.82, 0.96, r'{ZH (13.6 TeV)}', fontsize=11, va='top')
+    fig.text(0.82, 0.96, rf'{{{process_label}}}', fontsize=11, va='top')
 
     plt.tight_layout()
     plt.subplots_adjust(hspace=0.08, left=0.10, right=0.96, top=0.92, bottom=0.10)
@@ -212,6 +212,8 @@ def main():
     p.add_argument('--out', default='compare_and_C1.png')
     p.add_argument('--pt-max', type=float, default=300.0)
     p.add_argument('--nbins', type=int, default=30)
+    p.add_argument('--process-label', default='ZH (13.6 TeV)')
+    p.add_argument('--vector-label', default='Z')
     args = p.parse_args()
     
     # list of variables to plot: (varname, output_suffix, pt_max_override, nbins_override)
@@ -240,7 +242,7 @@ def main():
         args_copy.pt_max = pt_max_var
         args_copy.nbins = nbins_var
         
-        rc = process_and_plot(args.fileA, args.fileB, varname, out_var, args_copy)
+        rc = process_and_plot(args.fileA, args.fileB, varname, out_var, args_copy, process_label=args.process_label, vector_label=args.vector_label)
         if rc != 0:
             print(f'Warning: failed to plot {varname}')
     

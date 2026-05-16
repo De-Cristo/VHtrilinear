@@ -20,3 +20,11 @@ def test_build_wh_merge_plan_points_to_hidden_subchannel_roots():
     assert plan["lo_inputs"][0][0] == repo_root / "output" / "_wh_internal" / "wh_plus" / "events_lo.root"
     assert plan["lo_inputs"][1][0] == repo_root / "output" / "_wh_internal" / "wh_minus" / "events_lo.root"
     assert plan["rw_output"] == repo_root / "output" / "wh" / "events_rwgt.root"
+
+
+from scripts.vh_processes import get_public_process
+
+
+def test_process_labels_are_available_for_plotting():
+    assert get_public_process("zh").process_label == "ZH (13.6 TeV)"
+    assert get_public_process("wh").process_label == "WH (13.6 TeV)"

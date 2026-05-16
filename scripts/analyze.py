@@ -156,7 +156,9 @@ def step_plots(lo_root, rw_root, plotdir, kappas, feature):
     out = os.path.join(plotdir, 'weight_ratio.png')
     _call_with_argv(
         plot_weight_ratio.main,
-        ['plot_weight_ratio.py', lo_root, rw_root, '--out', out]
+        ['plot_weight_ratio.py', lo_root, rw_root, '--out', out,
+         '--process-label', process_spec.process_label,
+         '--vector-label', process_spec.vector_label]
     )
     _ok(f"weight_ratio.png")
 
@@ -164,7 +166,9 @@ def step_plots(lo_root, rw_root, plotdir, kappas, feature):
     out = os.path.join(plotdir, 'C1_vs_pt.png')
     _call_with_argv(
         plot_C1_vs_pt.main,
-        ['plot_C1_vs_pt.py', lo_root, rw_root, '--out', out]
+        ['plot_C1_vs_pt.py', lo_root, rw_root, '--out', out,
+         '--process-label', process_spec.process_label,
+         '--vector-label', process_spec.vector_label]
     )
     _ok(f"C1_vs_pt.png")
 
@@ -172,7 +176,9 @@ def step_plots(lo_root, rw_root, plotdir, kappas, feature):
     out = os.path.join(plotdir, 'compare_and_C1.png')
     _call_with_argv(
         compare_and_C1.main,
-        ['compare_and_C1.py', lo_root, rw_root, '--out', out]
+        ['compare_and_C1.py', lo_root, rw_root, '--out', out,
+         '--process-label', process_spec.process_label,
+         '--vector-label', process_spec.vector_label]
     )
     _ok(f"compare_and_C1.png (+ variant plots)")
 
@@ -181,7 +187,9 @@ def step_plots(lo_root, rw_root, plotdir, kappas, feature):
     os.chdir(plotdir)
     _call_with_argv(
         compare_roots.main,
-        ['compare_roots.py', lo_root, rw_root]
+        ['compare_roots.py', lo_root, rw_root,
+         '--process-label', process_spec.process_label,
+         '--vector-label', process_spec.vector_label]
     )
     os.chdir(orig_cwd)
     _ok(f"compare_scatter.png, compare_hpt_hist.png, compare_zpt_hist.png")
@@ -225,7 +233,9 @@ def step_plots(lo_root, rw_root, plotdir, kappas, feature):
             feature=feature,
             nbins=30,
             pt_max=300.0,
-            exclude_pattern='nloew'
+            exclude_pattern='nloew',
+            process_label=process_spec.process_label,
+            vector_label=process_spec.vector_label,
         )
         os.chdir(orig_cwd2)
         _ok(f"kappa3 overlay: full BSM variants ({feature})")
@@ -247,7 +257,9 @@ def step_plots(lo_root, rw_root, plotdir, kappas, feature):
             lo_file=lo_root,
             feature=feature,
             nbins=30,
-            pt_max=300.0
+            pt_max=300.0,
+            process_label=process_spec.process_label,
+            vector_label=process_spec.vector_label,
         )
         os.chdir(orig_cwd3)
         _ok(f"kappa3 overlay: NLO EW-only variants ({feature})")
@@ -289,6 +301,7 @@ def main():
     kappas = [float(k) for k in args.kappa.split(',')]
     repo_root = Path(__file__).resolve().parents[1]
     process_paths = build_process_paths(repo_root, args.process)
+    process_spec = get_public_process(args.process)
     args.outdir = str(process_paths["outdir"])
     plotdir = os.path.join(args.outdir, 'plots')
     lo_root = os.path.join(args.outdir, 'events_lo.root')

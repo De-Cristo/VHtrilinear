@@ -55,6 +55,8 @@ def main():
     p.add_argument('fileB', help='Second ROOT file (numerator)')
     p.add_argument('--out', default='weight_ratio.png', help='Output filename')
     p.add_argument('--bins', type=int, default=50, help='Number of bins')
+    p.add_argument('--process-label', default='ZH (13.6 TeV)')
+    p.add_argument('--vector-label', default='Z')
     args = p.parse_args()
 
     # Load data
