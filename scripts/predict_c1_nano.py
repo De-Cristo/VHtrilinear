@@ -766,24 +766,25 @@ def make_validation_plots(nano_data, lo_file, rw_file, plotdir):
     print(f"  All validation plots saved to {plotdir}/")
 
 
-def make_kappa_plots(nano_data, plotdir, plot_mode='shape'):
-    """
-    Plot kinematic distributions weighted by R(kappa) for various kappas.
-    plot_mode='shape': density-normalized top panel, density ratio bottom panel
-    plot_mode='yield': raw weighted yield top panel, yield ratio bottom panel
-    Both panels always use the SAME normalization consistently.
-    """
-    print(f"\n── Generating Kappa {plot_mode} plots ──")
-    outdir = os.path.join(plotdir, f'kappa_{plot_mode}')
+def make_kappa_plots(nano_data, plotdir, absolute=False):
+    """Plot kinematic distributions weighted by R(kappa) for various kappas with CMS style."""
+    print(f"\n── Generating Kappa variations plots (Absolute={absolute}) ──")
+    outdir_name = 'kappa_variations_abs' if absolute else 'kappa_variations_norm'
+    outdir = os.path.join(plotdir, outdir_name)
     os.makedirs(outdir, exist_ok=True)
 
+    # Use the same kappas as the reference plot
     target_kappas = [0, 10, 1, 2, 5, -10, -2, -5]
     
+    # Predefined colors for kappas to match style (or use a varied map)
     cmap = plt.get_cmap('tab10')
     color_map = {k: cmap(i%10) for i, k in enumerate(target_kappas)}
+    # SM is special
     color_map[1] = 'black'
-
-    is_density = (plot_mode == 'shape')
+    
+    # Key formatting logic depending on absolute target
+    def get_weight_key(k):
+        return f'weight_kappa_abs_{k}' if absolute else f'weight_kappa_{k}'
 
     for feat in FEATURES + EXTRA_NANO_FEATURES:
         label = FEATURE_LABELS.get(feat, feat)
@@ -808,64 +809,60 @@ def make_kappa_plots(nano_data, plotdir, plot_mode='shape'):
             q95 = np.percentile(x_nano, 95)
             fbins = np.linspace(0, q95, 41)
 
-        # SM baseline: always use the normalized weight (which equals 1.0 for k=1)
-        w_1 = nano_data['weight_kappa_1']
-        
-        # Compute SM histogram with the chosen normalization
-        nominal_hist, _ = np.histogram(x_nano, bins=fbins, weights=w_1, density=is_density)
+        # Calculate nominal (k=1) yield explicitly
+        w_1 = nano_data[get_weight_key(1)]
+        nominal_raw, _ = np.histogram(x_nano, bins=fbins, weights=w_1)
         sum_w1 = np.sum(w_1)
         
+        # Plot SM Base first (Top plot is density normalized for aesthetics)
         ax_t.hist(x_nano, bins=fbins, weights=w_1, histtype='step', linewidth=2.0, 
-                  color='black', label=r'SM ($\kappa_\lambda=1$)', density=is_density)
+                  color='black', label='SM EW NLO (base)', density=True)
         
         for k in target_kappas:
-            if k == 1:
-                continue
+            if k == 1: continue # already plotted
             
-            w_k = nano_data[f'weight_kappa_{k}']
+            w_k = nano_data[get_weight_key(k)]
             c = color_map[k]
             k_label = r'$\kappa_\lambda = ' + str(k) + '$'
             
-            # Compute kappa histogram with the SAME normalization
-            k_hist, _ = np.histogram(x_nano, bins=fbins, weights=w_k, density=is_density)
+            # Draw density shape on top
+            ax_t.hist(x_nano, bins=fbins, weights=w_k,
+                      histtype='step', linewidth=1.2, color=c, 
+                      label=k_label, density=True)
             
-            # Draw on top panel
-            if hasattr(ax_t, 'stairs'):
-                ax_t.stairs(k_hist, fbins, color=c, linewidth=1.2, label=k_label)
-            else:
-                ax_t.step(fbins[:-1], k_hist, where='post', color=c, linewidth=1.2, label=k_label)
+            # Compute absolute unnormalized raw counts for the correct cross-section ratio
+            k_raw, _ = np.histogram(x_nano, bins=fbins, weights=w_k)
             
-            # Ratio: kappa / SM (both computed with same normalization)
+            # Sub-panel ratio calculation vs SM
             with np.errstate(divide='ignore', invalid='ignore'):
-                ratio = np.where(nominal_hist > 0, k_hist / nominal_hist, np.nan)
+                ratio = np.where(nominal_raw > 0, k_raw / nominal_raw, np.nan)
             
+            # Calculate inclusive cross section ratio
+            incl_ratio = np.sum(w_k) / sum_w1 if sum_w1 > 0 else 1.0
+            
+            # Plot ratio as stairs/steps
             if hasattr(ax_b, 'stairs'):
                 ax_b.stairs(ratio, fbins, color=c, linewidth=1.5)
             else:
                 ax_b.step(fbins[:-1], ratio, where='post', color=c, linewidth=1.5)
-            
-            # In yield mode, show inclusive cross-section ratio as dashed line
-            if plot_mode == 'yield':
-                incl_ratio = np.sum(w_k) / sum_w1 if sum_w1 > 0 else 1.0
-                ax_b.axhline(incl_ratio, color=c, linestyle='--', linewidth=1.0, alpha=0.7)
+                
+            # Plot inclusive ratio dashed line
+            ax_b.axhline(incl_ratio, color=c, linestyle='--', linewidth=1.0, alpha=0.7)
 
-        # Bottom panel
+        # Bottom panel configurations
         ax_b.axhline(1.0, color='black', linestyle='--', linewidth=1.5, alpha=0.7)
         ax_b.set_xlabel(label)
-        if plot_mode == 'shape':
-            ax_b.set_ylabel(r'Shape $\kappa_\lambda$/SM')
-            ax_b.set_ylim(0.9, 1.1)
-        else:
-            ax_b.set_ylabel(r'Yield $\kappa_\lambda$/SM')
-            ax_b.set_ylim(0.65, 1.20)
+        ax_b.set_ylabel(r'BSM/SM NLO($\kappa_\lambda$)')
+        ax_b.set_ylim(0.6, 1.2)
         ax_b.set_xlim(fbins[0], fbins[-1])
         ax_b.minorticks_on()
 
-        # Top panel
-        ax_t.set_ylabel('Density' if is_density else 'Events')
+        # Top panel configurations
+        ax_t.set_ylabel('Density')
         ax_t.legend(frameon=False, ncol=2, fontsize=10, loc='upper right')
         ax_t.minorticks_on()
         
+        # CMS style Titles
         ax_t.text(0.0, 1.02, r'\textbf{CMS} \textit{Simulation}', 
                   transform=ax_t.transAxes, fontsize=14, va='bottom', ha='left')
         ax_t.text(1.0, 1.02, r'ZH (13.6 TeV)', 
@@ -873,7 +870,7 @@ def make_kappa_plots(nano_data, plotdir, plot_mode='shape'):
 
         plt.tight_layout()
         plt.subplots_adjust(hspace=0.06)
-        out = os.path.join(outdir, f'kappa_{plot_mode}_{feat}.png')
+        out = os.path.join(outdir, f'kappa_shape_{feat}.png')
         plt.savefig(out, dpi=200, bbox_inches='tight')
         plt.close()
         print(f"  [✓] {out}")
@@ -932,8 +929,8 @@ def main():
             print(f"Error: reweighted file not found: {args.rw_file}")
             sys.exit(1)
         make_validation_plots(nano_data, args.lo_file, args.rw_file, args.plotdir)
-        make_kappa_plots(nano_data, args.plotdir, plot_mode='shape')
-        make_kappa_plots(nano_data, args.plotdir, plot_mode='yield')
+        make_kappa_plots(nano_data, args.plotdir, absolute=False)
+        make_kappa_plots(nano_data, args.plotdir, absolute=True)
 
 
 if __name__ == '__main__':
