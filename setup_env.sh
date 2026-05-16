@@ -115,11 +115,7 @@ fi
 echo ""
 echo "── Installing UFO model ──"
 
-# Determine the model directory name from the proc card
-MODEL_NAME=$(grep "^import model" "$BASEDIR/cards/proc_mc_hz" | awk '{print $3}')
-if [ -z "$MODEL_NAME" ]; then
-    MODEL_NAME="hhh-model"
-fi
+MODEL_NAME="hhh-model-new"
 
 # Find the source model directory (could be hhh-model or hhh-model-new)
 SRC_MODEL=""
