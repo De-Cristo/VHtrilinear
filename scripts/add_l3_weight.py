@@ -14,6 +14,8 @@ import numpy as np
 import uproot
 import os
 
+from scripts.vh_processes import get_public_process
+
 
 def load_weights(fname, id_branch="event_id", weight_branch="w_lo"):
     t = uproot.open(fname)["events"]
@@ -76,7 +78,8 @@ def main():
     n_events = len(event_ids)
     abs_l3_scalar = float(args.l3)
     abs_l3 = np.full(n_events, abs_l3_scalar, dtype=np.float64)
-    delta_ZH_scalar = -1.536e-3
+    process_spec = get_public_process("zh")
+    delta_ZH_scalar = process_spec.delta_h
     delta_ZH = np.full(n_events, delta_ZH_scalar, dtype=np.float64)
 
     # ZH_BSM depends on abs_l3 and delta_ZH; compute per-event
@@ -162,7 +165,7 @@ def main():
 
     # --- compute new NLO weight w_nlo_ew and write separate output file ---
     # w_nlo_ew = ZH_BSM * w_lo * (l3*c1 - c1 + Kew)
-    Kew_scalar = 0.947
+    Kew_scalar = process_spec.k_ew
     Kew = np.full(n_events, Kew_scalar, dtype=np.float64)
     # abs_l3, c1, ZH_BSM and w_lo_arr are defined earlier and are per-event arrays
     w_nlo_ew = ZH_BSM * w_lo_arr * (abs_l3 * c1 - c1 + Kew)

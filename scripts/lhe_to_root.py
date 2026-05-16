@@ -185,7 +185,7 @@ def boost(vec, beta):
     return np.array([Ep, p_star[0], p_star[1], p_star[2]])
 
 
-def run(infile, outfile, ebeam=6800.0):
+def run(infile, outfile, ebeam=6800.0, subchannel_code=None):
     if ak is None or uproot is None or np is None:
         print('Missing dependencies: please pip install awkward uproot numpy')
         return 1
@@ -297,6 +297,9 @@ def run(infile, outfile, ebeam=6800.0):
     # convert to awkward arrays and write to ROOT
     out = {}
     out['event_id'] = np.array(event_ids, dtype=np.int32)
+    if subchannel_code is not None:
+        out['source_event_id'] = np.array(event_ids, dtype=np.int64)
+        out['subchannel'] = np.full(len(event_ids), subchannel_code, dtype=np.int8)
     out['v_m'] = np.array(v_m)
     out['v_pt'] = np.array(v_pt)
     out['v_eta'] = np.array(v_eta)
