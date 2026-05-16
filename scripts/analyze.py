@@ -25,12 +25,45 @@ import argparse
 import os
 import sys
 import glob
+from pathlib import Path
+
+from scripts.merge_root_files import merge_root_files
+from scripts.vh_processes import get_public_process, get_output_dir
 
 # ─────────────────────────────────────────────────────
 # Helpers
 # ─────────────────────────────────────────────────────
 
 SCRIPTS_DIR = os.path.dirname(os.path.abspath(__file__))
+
+
+def build_process_paths(repo_root: Path, process_key: str):
+    outdir = get_output_dir(repo_root, process_key)
+    return {
+        "outdir": outdir,
+        "plotdir": outdir / "plots",
+        "lo_lhe": outdir / "events.lhe",
+        "rw_lhe": outdir / "events_rwgt.lhe",
+        "lo_root": outdir / "events_lo.root",
+        "rw_root": outdir / "events_rwgt.root",
+    }
+
+
+def build_wh_merge_plan(repo_root: Path):
+    internal = repo_root / "output" / "_wh_internal"
+    final = repo_root / "output" / "wh"
+    return {
+        "lo_inputs": [
+            (internal / "wh_plus" / "events_lo.root", 0),
+            (internal / "wh_minus" / "events_lo.root", 1),
+        ],
+        "rw_inputs": [
+            (internal / "wh_plus" / "events_rwgt.root", 0),
+            (internal / "wh_minus" / "events_rwgt.root", 1),
+        ],
+        "lo_output": final / "events_lo.root",
+        "rw_output": final / "events_rwgt.root",
+    }
 
 
 def _call_with_argv(main_fn, argv):
@@ -231,6 +264,8 @@ def main():
         description='VHtrilinear Stage 4: unified analysis pipeline',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
+    p.add_argument('--process', choices=['zh', 'wh'], default='zh',
+                   help='Public process to analyze')
     p.add_argument('--lo-lhe', default='output/events.lhe',
                    help='Path to the LO LHE file')
     p.add_argument('--rw-lhe', default='output/events_rwgt.lhe',
@@ -252,10 +287,10 @@ def main():
     args = p.parse_args()
 
     kappas = [float(k) for k in args.kappa.split(',')]
-    os.makedirs(args.outdir, exist_ok=True)
+    repo_root = Path(__file__).resolve().parents[1]
+    process_paths = build_process_paths(repo_root, args.process)
+    args.outdir = str(process_paths["outdir"])
     plotdir = os.path.join(args.outdir, 'plots')
-
-    # Derived ROOT file paths
     lo_root = os.path.join(args.outdir, 'events_lo.root')
     rw_root = os.path.join(args.outdir, 'events_rwgt.root')
 
@@ -267,6 +302,12 @@ def main():
     print(f"  Beam energy: {args.ebeam} GeV")
     print(f"  κ_λ values:  {kappas}")
     print("=" * 60)
+
+    # WH merge orchestration (before Step 1 if subchannel ROOTs exist)
+    if args.process == "wh":
+        merge_plan = build_wh_merge_plan(repo_root)
+        merge_root_files(merge_plan["lo_inputs"], merge_plan["lo_output"])
+        merge_root_files(merge_plan["rw_inputs"], merge_plan["rw_output"])
 
     # Step 1: LHE → ROOT
     _step("Step 1: LHE → ROOT conversion")
