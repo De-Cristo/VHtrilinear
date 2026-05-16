@@ -26,8 +26,11 @@ Three commands cover the normal workflow:
 
 ```bash
 ./setup_env.sh
-./run_pipeline.sh --nevents 500000 --ecm 13600
-./analyze.sh --kappa 0,1,2,5,10,-2,-5,-10
+./run_pipeline.sh --process zh --nevents 500000 --ecm 13600
+./analyze.sh --process zh --kappa 0,1,2,5,10,-2,-5,-10
+
+./run_pipeline.sh --process wh --nevents 500000 --ecm 13600
+./analyze.sh --process wh --kappa 0,1,2,5,10,-2,-5,-10
 ```
 
 - `setup_env.sh` checks for Apptainer, installs LHAPDF 6.2.1 and MG5_aMC_v2.5.5 if missing, configures the UFO model, and prepares PDF libraries.
@@ -63,17 +66,18 @@ Three commands cover the normal workflow:
 
 | Option | Default | Description |
 |---|---:|---|
+| `--process` | `zh` | Public process to generate (`zh` or `wh`) |
 | `--nevents N` | `500000` | Number of LO events to generate |
 | `--ecm GeV` | `13600` | Proton-proton center-of-mass energy |
-| `--skip-generation` | — | Reuse an existing `hz_MC/` directory (skip MG5 process generation) |
+| `--skip-generation` | — | Reuse an existing MC directory (skip MG5 process generation) |
 
 ### `analyze.sh`
 
 | Option | Default | Description |
 |---|---:|---|
+| `--process` | `zh` | Public process to analyze (`zh` or `wh`) |
 | `--kappa LIST` | `0,1,2,5,10,-2,-5,-10` | Comma-separated $\kappa_\lambda$ values to process |
 | `--ebeam GeV` | `6800` | Beam energy per proton passed to the LHE→ROOT conversion |
-| `--input-dir DIR` | `output/` | Directory containing `events.lhe` and `events_rwgt.lhe` |
 
 ---
 
@@ -108,20 +112,18 @@ All generated artifacts live under `output/`:
 
 ```text
 output/
-├── events.lhe              # LO events from MG5
-├── events_rwgt.lhe         # Reweighted events with NLO EW loop corrections
-├── events_lo.root          # LO events in ROOT format
-├── events_rwgt.root        # Reweighted events in ROOT format
-├── events_lo_l3corr.root   # LO events corrected with SM NLO weights
-├── events_l3corr_*.root    # BSM-weighted ROOT files for each kappa
-└── plots/
-    ├── weight_ratio.png
-    ├── C1_vs_pt.png
-    ├── compare_and_C1.png
-    ├── compare_scatter.png
-    ├── compare_hpt_hist.png
-    ├── compare_zpt_hist.png
-    └── events_l3corr_*_vs_lo.png
+├── zh/
+│   ├── events.lhe
+│   ├── events_rwgt.lhe
+│   ├── events_lo.root
+│   ├── events_rwgt.root
+│   ├── events_l3corr_*.root
+│   └── plots/
+└── wh/
+    ├── events_lo.root
+    ├── events_rwgt.root
+    ├── events_l3corr_*.root
+    └── plots/
 ```
 
 `plots/` contains all PNG output from the validation and plotting scripts.

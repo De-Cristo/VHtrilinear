@@ -1,4 +1,4 @@
-# Higgs Self-Coupling (λ₃) Study Pipeline — ZH Process
+# Higgs Self-Coupling (λ₃) Study Pipeline — VH Process
 
 ## Theoretical Background
 
@@ -54,18 +54,35 @@ source lhapdf_env.sh
 # apptainer run --env ... trilinear-boost.sif
 ```
 
-### 2. Generate LO QCD Process (hz_MC)
+### 2. Generate LO QCD Process
 
-Inside MG5, using the `hhh-model` UFO:
+Inside MG5, using the `hhh-model-new` UFO:
 
+**ZH:**
 ```
-import model hhh-model
+import model hhh-model-new
 generate p p > h z [LOonly= QCD]
-output hz_MC
+output zh_MC
 quit
 ```
 
-This creates the LO process directory `hz_MC/` with the standard MadGraph structure.
+**WH:**
+```
+import model hhh-model-new
+generate p p > h w+ [LOonly= QCD]
+output whp_MC
+quit
+```
+
+```
+import model hhh-model-new
+generate p p > h w- [LOonly= QCD]
+output whm_MC
+quit
+```
+
+WH is executed internally as W+H and W-H, then merged after LHE-to-ROOT conversion.
+Published outputs only appear under `output/wh/`.
 
 > [!NOTE]
 > The `[LOonly= QCD]` syntax is crucial — it tells MG5 to generate at LO in QCD but prepare the infrastructure for NLO EW virtual corrections.
@@ -80,16 +97,16 @@ cd MG5_aMC_v2_5_5/
 
 **Outputs:** `check_olp.inc` (Fortran include mapping PDGs → MadLoop calls) and `proc_ml` (process list for loop generation).
 
-### 4. Generate EW Virtual Matrix Elements (hz_ME)
+### 4. Generate EW Virtual Matrix Elements
 
 ```bash
 # First: copy the diagram filter
 cp trilinear-RW/vvh-loop_diagram_generation.py madgraph/loop/loop_diagram_generation.py
 
 # Then in MG5:
-import model hhh-model
+import model hhh-model-new
 <contents of proc_ml>
-output hz_ME
+output zh_ME
 ```
 
 > [!CAUTION]

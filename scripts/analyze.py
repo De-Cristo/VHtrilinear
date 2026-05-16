@@ -27,6 +27,11 @@ import sys
 import glob
 from pathlib import Path
 
+# Ensure repo root is on path so 'scripts' package resolves when running directly
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
 from scripts.merge_root_files import merge_root_files
 from scripts.vh_processes import get_public_process, get_output_dir
 
