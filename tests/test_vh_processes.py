@@ -32,3 +32,17 @@ def test_get_public_process_rejects_unknown_keys():
         assert "Unknown process" in str(exc)
     else:
         raise AssertionError("Expected KeyError for unknown process")
+
+
+def test_card_paths_match_process_layout():
+    zh = get_public_process("zh")
+    wh = get_public_process("wh")
+
+    assert zh.run_card == "cards/zh/run_card.dat"
+    assert zh.param_card == "cards/zh/param_card.dat"
+    assert zh.subchannels[0].proc_card == "cards/zh/proc_card.dat"
+
+    assert wh.run_card == "cards/wh/run_card.dat"
+    assert wh.param_card == "cards/wh/param_card.dat"
+    assert wh.subchannels[0].proc_card == "cards/wh/proc_card_wp.dat"
+    assert wh.subchannels[1].proc_card == "cards/wh/proc_card_wm.dat"

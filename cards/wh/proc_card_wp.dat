@@ -1,0 +1,4 @@
+import model hhh-model-new
+generate p p > h w+ [LOonly= QCD]
+output whp_MC
+quit
