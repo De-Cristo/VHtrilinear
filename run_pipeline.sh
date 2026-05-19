@@ -155,12 +155,24 @@ PY
 
     rm -rf "$MG5DIR/$SUB_MC_DIR" "$MG5DIR/$SUB_ME_DIR"
 
+    stage3_patch_mg5_boost_wrappers "$MG5DIR"
     pushd "$MG5DIR" > /dev/null
     ./bin/mg5_aMC < "$BASEDIR/$PROC_CARD"
     popd > /dev/null
+    stage3_patch_mg5_boost_wrappers "$MG5DIR"
 
+    SUB_AMCNLO_CONF="$MG5DIR/$SUB_MC_DIR/Cards/amcatnlo_configuration.txt"
+    if [ -f "$SUB_AMCNLO_CONF" ]; then
+        sed -i "s|^lhapdf = .*|lhapdf = $LHAPDF_CONFIG #|" "$SUB_AMCNLO_CONF"
+    fi
+
+    RUNCARD="$MG5DIR/$SUB_MC_DIR/Cards/run_card.dat"
     cp "$BASEDIR/$SUB_RUN_CARD" "$MG5DIR/$SUB_MC_DIR/Cards/run_card.dat"
     cp "$BASEDIR/$SUB_PARAM_CARD" "$MG5DIR/$SUB_MC_DIR/Cards/param_card.dat"
+    sed -i "s|.*=.*nevents.*|  $NEVENTS = nevents ! Number of unweighted events requested|" "$RUNCARD"
+    sed -i "s|.*=.*ebeam1.*|  $EBEAM = ebeam1  ! beam 1 total energy in GeV|" "$RUNCARD"
+    sed -i "s|.*=.*ebeam2.*|  $EBEAM = ebeam2  ! beam 2 total energy in GeV|" "$RUNCARD"
+    sed -i 's|False.*=.*store_rwgt_inf|True = store_rwgt_inf|' "$RUNCARD"
 
     cp "$RWDIR/gevirt.sh" "$MG5DIR/"
     pushd "$MG5DIR" > /dev/null
@@ -178,10 +190,12 @@ EOF
     ./bin/mg5_aMC < "_proc_${SUBCHANNEL}_me"
     rm -f "_proc_${SUBCHANNEL}_me"
     popd > /dev/null
+    stage3_patch_mg5_boost_wrappers "$MG5DIR"
 
     SUBPROC="$MG5DIR/$SUB_ME_DIR/SubProcesses"
     cp "$RWDIR/makefile" "$SUBPROC/"
     cp "$RWDIR/check_OLP.f" "$SUBPROC/"
+    stage3_patch_check_olp_pdflabel "$SUBPROC/check_OLP.f"
     cp "$MG5DIR/check_olp.inc" "$SUBPROC/"
 
     ME_SUBDIR=$(find "$SUBPROC" -maxdepth 1 -type d -name 'P0_*' | head -1)
@@ -192,6 +206,14 @@ EOF
     cp "$ME_SUBDIR/nsquaredSO.inc" "$SUBPROC/"
     cp "$MG5DIR/$SUB_MC_DIR/SubProcesses/c_weight.inc" "$SUBPROC/"
     cp "$MC_SUBDIR/nexternal.inc" "$SUBPROC/"
+
+    LIBS="$MG5DIR/$SUB_ME_DIR/lib"
+    cp "$MG5DIR/HHH-libs/libpdf.a" "$LIBS/" 2>/dev/null || true
+    cp -r "$MG5DIR/HHH-libs/Pdfdata" "$LIBS/" 2>/dev/null || true
+    cp "$MG5DIR/HHH-libs/libLHAPDF.a" "$LIBS/" 2>/dev/null || true
+    if [ -L "$MG5DIR/HHH-libs/PDFsets" ] || [ -d "$MG5DIR/HHH-libs/PDFsets" ]; then
+        cp -r "$MG5DIR/HHH-libs/PDFsets" "$LIBS/" 2>/dev/null || true
+    fi
 
     pushd "$SUBPROC" > /dev/null
     make OLP_static
