@@ -42,8 +42,8 @@ from scripts.vh_processes import get_public_process, get_output_dir
 SCRIPTS_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
-def build_process_paths(repo_root: Path, process_key: str):
-    outdir = get_output_dir(repo_root, process_key)
+def build_process_paths(repo_root: Path, process_key: str, outdir=None):
+    outdir = Path(outdir) if outdir is not None else get_output_dir(repo_root, process_key)
     return {
         "outdir": outdir,
         "plotdir": outdir / "plots",
@@ -54,17 +54,29 @@ def build_process_paths(repo_root: Path, process_key: str):
     }
 
 
-def build_wh_merge_plan(repo_root: Path):
+def build_internal_subchannel_paths(repo_root: Path, process_key: str, subchannel_key: str):
+    outdir = repo_root / "output" / f"_{process_key}_internal" / subchannel_key
+    return {
+        "outdir": outdir,
+        "lo_lhe": outdir / "events.lhe",
+        "rw_lhe": outdir / "events_rwgt.lhe",
+        "lo_root": outdir / "events_lo.root",
+        "rw_root": outdir / "events_rwgt.root",
+    }
+
+
+def build_wh_merge_plan(repo_root: Path, outdir=None):
     internal = repo_root / "output" / "_wh_internal"
-    final = repo_root / "output" / "wh"
+    final = Path(outdir) if outdir is not None else repo_root / "output" / "wh"
+    wh_spec = get_public_process("wh")
     return {
         "lo_inputs": [
-            (internal / "wh_plus" / "events_lo.root", 0),
-            (internal / "wh_minus" / "events_lo.root", 1),
+            (internal / sub.key / "events_lo.root", sub.subchannel_code)
+            for sub in wh_spec.subchannels
         ],
         "rw_inputs": [
-            (internal / "wh_plus" / "events_rwgt.root", 0),
-            (internal / "wh_minus" / "events_rwgt.root", 1),
+            (internal / sub.key / "events_rwgt.root", sub.subchannel_code)
+            for sub in wh_spec.subchannels
         ],
         "lo_output": final / "events_lo.root",
         "rw_output": final / "events_rwgt.root",
@@ -105,7 +117,7 @@ def _warn(msg):
 # Step 1: LHE → ROOT
 # ─────────────────────────────────────────────────────
 
-def step_lhe_to_root(lo_lhe, rw_lhe, lo_root, rw_root, ebeam):
+def step_lhe_to_root(lo_lhe, rw_lhe, lo_root, rw_root, ebeam, subchannel_code=None):
     # import the converter's run() directly — it exposes a proper API
     sys.path.insert(0, SCRIPTS_DIR)
     import lhe_to_root
@@ -118,12 +130,32 @@ def step_lhe_to_root(lo_lhe, rw_lhe, lo_root, rw_root, ebeam):
         sys.exit(1)
 
     print(f"  Converting: {lo_lhe} → {lo_root}")
-    lhe_to_root.run(lo_lhe, lo_root, ebeam=ebeam)
+    lhe_to_root.run(lo_lhe, lo_root, ebeam=ebeam, subchannel_code=subchannel_code)
     _ok(f"LO ROOT: {lo_root}")
 
     print(f"  Converting: {rw_lhe} → {rw_root}")
-    lhe_to_root.run(rw_lhe, rw_root, ebeam=ebeam)
+    lhe_to_root.run(rw_lhe, rw_root, ebeam=ebeam, subchannel_code=subchannel_code)
     _ok(f"Reweighted ROOT: {rw_root}")
+
+
+def step_process_lhe_to_root(process_spec, repo_root, process_paths, ebeam, lo_lhe=None, rw_lhe=None):
+    if process_spec.key != "wh":
+        step_lhe_to_root(lo_lhe, rw_lhe, process_paths["lo_root"], process_paths["rw_root"], ebeam)
+        return
+
+    for subchannel in process_spec.subchannels:
+        sub_paths = build_internal_subchannel_paths(repo_root, process_spec.key, subchannel.key)
+        step_lhe_to_root(
+            sub_paths["lo_lhe"],
+            sub_paths["rw_lhe"],
+            sub_paths["lo_root"],
+            sub_paths["rw_root"],
+            ebeam,
+        )
+
+    merge_plan = build_wh_merge_plan(repo_root, process_paths["outdir"])
+    merge_root_files(merge_plan["lo_inputs"], merge_plan["lo_output"])
+    merge_root_files(merge_plan["rw_inputs"], merge_plan["rw_output"])
 
 
 # ─────────────────────────────────────────────────────
@@ -147,7 +179,7 @@ def step_bsm_weights(lo_root, rw_root, kappas):
 # Step 3: Plots
 # ─────────────────────────────────────────────────────
 
-def step_plots(lo_root, rw_root, plotdir, kappas, feature):
+def step_plots(lo_root, rw_root, plotdir, kappas, feature, process_spec):
     sys.path.insert(0, SCRIPTS_DIR)
     import plot_weight_ratio
     import plot_C1_vs_pt
@@ -283,11 +315,11 @@ def main():
     )
     p.add_argument('--process', choices=['zh', 'wh'], default='zh',
                    help='Public process to analyze')
-    p.add_argument('--lo-lhe', default='output/events.lhe',
+    p.add_argument('--lo-lhe',
                    help='Path to the LO LHE file')
-    p.add_argument('--rw-lhe', default='output/events_rwgt.lhe',
+    p.add_argument('--rw-lhe',
                    help='Path to the reweighted LHE file')
-    p.add_argument('--outdir', default='output',
+    p.add_argument('--outdir',
                    help='Output directory for ROOT files')
     p.add_argument('--ebeam', type=float, default=6800.0,
                    help='Beam energy per proton [GeV]')
@@ -305,27 +337,30 @@ def main():
 
     kappas = [float(k) for k in args.kappa.split(',')]
     repo_root = Path(__file__).resolve().parents[1]
-    process_paths = build_process_paths(repo_root, args.process)
+    process_paths = build_process_paths(repo_root, args.process, args.outdir)
     process_spec = get_public_process(args.process)
     args.outdir = str(process_paths["outdir"])
-    plotdir = os.path.join(args.outdir, 'plots')
-    lo_root = os.path.join(args.outdir, 'events_lo.root')
-    rw_root = os.path.join(args.outdir, 'events_rwgt.root')
+    plotdir = str(process_paths["plotdir"])
+    lo_root = str(process_paths["lo_root"])
+    rw_root = str(process_paths["rw_root"])
+
+    if args.process == "wh":
+        lo_lhe_display = str(repo_root / "output" / "_wh_internal" / "{wh_plus,wh_minus}" / "events.lhe")
+        rw_lhe_display = str(repo_root / "output" / "_wh_internal" / "{wh_plus,wh_minus}" / "events_rwgt.lhe")
+    else:
+        args.lo_lhe = args.lo_lhe or str(process_paths["lo_lhe"])
+        args.rw_lhe = args.rw_lhe or str(process_paths["rw_lhe"])
+        lo_lhe_display = args.lo_lhe
+        rw_lhe_display = args.rw_lhe
 
     print("=" * 60)
     print("  VHtrilinear Analysis Pipeline")
-    print(f"  LO LHE:      {args.lo_lhe}")
-    print(f"  RW LHE:      {args.rw_lhe}")
+    print(f"  LO LHE:      {lo_lhe_display}")
+    print(f"  RW LHE:      {rw_lhe_display}")
     print(f"  Output dir:  {args.outdir}")
     print(f"  Beam energy: {args.ebeam} GeV")
     print(f"  κ_λ values:  {kappas}")
     print("=" * 60)
-
-    # WH merge orchestration (before Step 1 if subchannel ROOTs exist)
-    if args.process == "wh":
-        merge_plan = build_wh_merge_plan(repo_root)
-        merge_root_files(merge_plan["lo_inputs"], merge_plan["lo_output"])
-        merge_root_files(merge_plan["rw_inputs"], merge_plan["rw_output"])
 
     # Step 1: LHE → ROOT
     _step("Step 1: LHE → ROOT conversion")
@@ -337,7 +372,14 @@ def main():
             print(f"    Expected: {rw_root}")
             sys.exit(1)
     else:
-        step_lhe_to_root(args.lo_lhe, args.rw_lhe, lo_root, rw_root, args.ebeam)
+        step_process_lhe_to_root(
+            process_spec,
+            repo_root,
+            process_paths,
+            args.ebeam,
+            lo_lhe=args.lo_lhe,
+            rw_lhe=args.rw_lhe,
+        )
 
     # Step 2: BSM weights
     _step("Step 2: BSM weight computation")
@@ -351,7 +393,7 @@ def main():
     if args.skip_plots:
         _skip("All plots")
     else:
-        step_plots(lo_root, rw_root, plotdir, kappas, args.feature)
+        step_plots(lo_root, rw_root, plotdir, kappas, args.feature, process_spec)
 
     # Summary
     print("\n" + "=" * 60)
