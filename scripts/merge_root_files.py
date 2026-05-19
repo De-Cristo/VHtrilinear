@@ -1,18 +1,14 @@
-from __future__ import annotations
-
-from pathlib import Path
-
 import numpy as np
 import uproot
 
 
-def _load_tree(path: Path):
+def _load_tree(path):
     tree = uproot.open(path)["events"]
     arrays = {name: tree[name].array(library="np") for name in tree.keys()}
     return arrays
 
 
-def merge_root_files(inputs: list[tuple[Path, int]], output: Path) -> Path:
+def merge_root_files(inputs, output):
     if not inputs:
         raise ValueError("No input ROOT files provided")
 

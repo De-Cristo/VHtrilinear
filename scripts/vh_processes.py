@@ -1,33 +1,76 @@
-from __future__ import annotations
-
-from dataclasses import dataclass
 from pathlib import Path
 
 
-@dataclass(frozen=True)
-class SubchannelSpec:
-    key: str
-    display_name: str
-    proc_card: str
-    mc_dir: str
-    me_dir: str
-    subchannel_code: int
-    process_label: str
-    vector_label: str
+class SubchannelSpec(object):
+    __slots__ = (
+        "key",
+        "display_name",
+        "proc_card",
+        "mc_dir",
+        "me_dir",
+        "subchannel_code",
+        "process_label",
+        "vector_label",
+    )
+
+    def __init__(
+        self,
+        key,
+        display_name,
+        proc_card,
+        mc_dir,
+        me_dir,
+        subchannel_code,
+        process_label,
+        vector_label,
+    ):
+        self.key = key
+        self.display_name = display_name
+        self.proc_card = proc_card
+        self.mc_dir = mc_dir
+        self.me_dir = me_dir
+        self.subchannel_code = subchannel_code
+        self.process_label = process_label
+        self.vector_label = vector_label
 
 
-@dataclass(frozen=True)
-class PublicProcessSpec:
-    key: str
-    display_name: str
-    output_dirname: str
-    run_card: str
-    param_card: str
-    delta_h: float
-    k_ew: float
-    process_label: str
-    vector_label: str
-    subchannels: tuple[SubchannelSpec, ...]
+class PublicProcessSpec(object):
+    __slots__ = (
+        "key",
+        "display_name",
+        "output_dirname",
+        "run_card",
+        "param_card",
+        "delta_h",
+        "k_ew",
+        "process_label",
+        "vector_label",
+        "subchannels",
+    )
+
+    def __init__(
+        self,
+        key,
+        display_name,
+        output_dirname,
+        run_card,
+        param_card,
+        delta_h,
+        k_ew,
+        process_label,
+        vector_label,
+        subchannels,
+    ):
+        self.key = key
+        self.display_name = display_name
+        self.output_dirname = output_dirname
+        self.run_card = run_card
+        self.param_card = param_card
+        self.delta_h = delta_h
+        self.k_ew = k_ew
+        self.process_label = process_label
+        self.vector_label = vector_label
+        self.subchannels = subchannels
 
 
 PUBLIC_PROCESSES = {
@@ -90,19 +133,19 @@ PUBLIC_PROCESSES = {
 }
 
 
-def get_public_process(process_key: str) -> PublicProcessSpec:
+def get_public_process(process_key):
     try:
         return PUBLIC_PROCESSES[process_key]
     except KeyError as exc:
         raise KeyError(f"Unknown process: {process_key}") from exc
 
 
-def get_output_dir(repo_root: Path, process_key: str) -> Path:
+def get_output_dir(repo_root, process_key):
     spec = get_public_process(process_key)
     return repo_root / "output" / spec.output_dirname
 
 
-def get_subchannel_code(subchannel_key: str) -> int:
+def get_subchannel_code(subchannel_key):
     for process in PUBLIC_PROCESSES.values():
         for subchannel in process.subchannels:
             if subchannel.key == subchannel_key:
