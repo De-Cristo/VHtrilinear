@@ -1,11 +1,11 @@
-# Higgs Trilinear Self-Coupling (λ₃) via ZH Process
+# Higgs Trilinear Self-Coupling (λ₃) via VH Process
 
 ## Part 1: Physics Background
 
-The Higgs trilinear self-coupling λ₃ (the HHH vertex) cannot be directly measured in single-Higgs production processes (like ZH) at tree level. However, λ₃ enters these processes **at one loop** through virtual EW corrections involving the H→HH splitting.
+The Higgs trilinear self-coupling λ₃ (the HHH vertex) cannot be directly measured in single-Higgs production processes (like ZH or WH) at tree level. However, λ₃ enters these processes **at one loop** through virtual EW corrections involving the H→HH splitting.
 
 By calculating the **ratio of the NLO EW correction to the LO cross section** — parameterized as the **C₁** coefficient — we can extract the specific sensitivity of the process to the true value of λ₃.
-For example, for the ZH process at 13 TeV across the inclusive phase space, this factor is roughly **C₁ ≈ 1.19%**.
+For example, for the VH process at 13 TeV across the inclusive phase space, this factor is roughly **C₁ ≈ 1.19%**.
 
 The full BSM cross section for arbitrary κ_λ (where $\kappa_\lambda = \lambda_3 / \lambda_3^{SM}$) is reconstructed identically on an event-by-event level using analytic rescaling:
 
@@ -34,8 +34,8 @@ Three commands cover the normal workflow:
 ```
 
 - `setup_env.sh` checks for Apptainer, installs LHAPDF 6.2.1 and MG5_aMC_v2.5.5 if missing, configures the UFO model, and prepares PDF libraries.
-- `run_pipeline.sh` generates the MG5 processes, builds the OLP reweighter, produces LO events, and reweights them to attach EW loop corrections. Results are copied to `output/`.
-- `analyze.sh` converts the LHE files to ROOT, computes BSM weights for each requested $\kappa_\lambda$, and runs the full plotting suite. All plots land in `output/plots/`.
+- `run_pipeline.sh` generates the MG5 processes, builds the OLP reweighter, produces LO events, and reweights them to attach EW loop corrections. Results are copied to `output/<process>/`.
+- `analyze.sh` converts the LHE files to ROOT, computes BSM weights for each requested $\kappa_\lambda$, and runs the full plotting suite. All plots land in `output/<process>/plots/`.
 
 ---
 
@@ -137,10 +137,10 @@ For step-by-step debugging without the wrapper scripts, see [`manual_stage3_debu
 The manual flow is:
 
 1. **Environment** — source `lhapdf_env.sh` and enter the Apptainer container.
-2. **MG5 LO generation** — run `./bin/mg5_aMC` with `cards/proc_mc_hz` to create `hz_MC`.
-3. **Virtual extraction** — run `trilinear-RW/gevirt.sh hz_MC` to produce `check_olp.inc` and `proc_ml`.
-4. **ME generation** — generate `hz_ME` with the loop-diagram filter (`vvh-loop_diagram_generation.py`) and `hhh-model-new`.
-5. **Build OLP** — compile `check_OLP` in `hz_ME/SubProcesses/`.
+2. **MG5 LO generation** — run `./bin/mg5_aMC` with `cards/zh/proc_card.dat` (or `cards/wh/proc_card_wp.dat` / `cards/wh/proc_card_wm.dat`) to create the MC process directory.
+3. **Virtual extraction** — run `trilinear-RW/gevirt.sh <mc_dir>` to produce `check_olp.inc` and `proc_ml`.
+4. **ME generation** — generate the ME process directory with the loop-diagram filter (`vvh-loop_diagram_generation.py`) and `hhh-model-new`.
+5. **Build OLP** — compile `check_OLP` in the ME `SubProcesses/` directory.
 6. **LO events** — launch MG5 for LO event generation (`noshowerLO`).
 7. **Reweighting** — unzip `events.lhe.gz` and run `./check_OLP` to produce `events_rwgt.lhe`.
 8. **Analysis** — run `lhe_to_root.py`, `add_l3_weight.py`, and the plotting scripts.
