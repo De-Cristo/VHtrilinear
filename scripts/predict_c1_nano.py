@@ -106,6 +106,29 @@ def get_vector_boson_mask(pdgid, process_key):
     if process_key == "wh":
         return (pdgid == 24) | (pdgid == -24)
     raise KeyError(f"Unknown process: {process_key}")
+
+
+def compute_kappa_weights(c1_percent, process_key, target_kappas):
+    spec = get_public_process(process_key)
+    delta_h = spec.delta_h
+    k_ew = spec.k_ew
+    c_dec = c1_percent / 100.0
+
+    def compute_R_kappa_norm(k):
+        z_h = 1.0 / (1.0 - (k**2 - 1.0) * delta_h)
+        num = z_h * (1.0 + k * c_dec + delta_h)
+        den = 1.0 + c_dec + delta_h
+        return num / den
+
+    def compute_R_kappa_abs(k):
+        z_h = 1.0 / (1.0 - (k**2 - 1.0) * delta_h)
+        return z_h * (k * c_dec - c_dec + k_ew) / k_ew
+
+    out = {}
+    for k in target_kappas:
+        out[f'weight_kappa_{k}'] = compute_R_kappa_norm(k).astype(np.float32)
+        out[f'weight_kappa_abs_{k}'] = compute_R_kappa_abs(k).astype(np.float32)
+    return out
 FEATURE_LABELS = {
     'h_pt': r'$p_T(H)$ [GeV]',
     'v_pt': r'$p_T(Z)$ [GeV]',
@@ -452,27 +475,9 @@ def process_nanoaod(input_files, model_path, output_path, process_key, ebeam=680
     # ── Compute R(kappa) scaling weights ──
     print(f"\n── Computing R(kappa) weights ──")
     target_kappas = [0, 10, 1, 2, 5, -10, -2, -5]
-    delta_ZH = -1.536e-3
 
-    def compute_R_kappa_norm(c1_percent, k):
-        c_dec = c1_percent / 100.0
-        z_h = 1.0 / (1.0 - (k**2 - 1.0) * delta_ZH)
-        num = z_h * (1.0 + k * c_dec + delta_ZH)
-        den = 1.0 + c_dec + delta_ZH
-        return num / den
-
-    def compute_R_kappa_abs(c1_percent, k):
-        c_dec = c1_percent / 100.0
-        z_h = 1.0 / (1.0 - (k**2 - 1.0) * delta_ZH)
-        k_ew = 0.947
-        return z_h * (k * c_dec - c_dec + k_ew) / k_ew
-
-    kappa_weights = {}
+    kappa_weights = compute_kappa_weights(c1_pred, process_key, target_kappas)
     for k in target_kappas:
-        w_norm = compute_R_kappa_norm(c1_pred, k)
-        w_abs = compute_R_kappa_abs(c1_pred, k)
-        kappa_weights[f'weight_kappa_{k}'] = w_norm.astype(np.float32)
-        kappa_weights[f'weight_kappa_abs_{k}'] = w_abs.astype(np.float32)
         print(f"  [✓] kappa={k} (norm & abs weights)")
 
     # ── Save output ROOT file ──
@@ -929,23 +934,40 @@ def main():
     )
     p.add_argument('--input', nargs='+', required=True,
                    help='Input NanoAOD ROOT file(s), supports glob patterns')
-    p.add_argument('--model', default='output/c1_regressor/c1_regressor.json',
-                   help='Path to trained XGBoost model (.json)')
-    p.add_argument('--output', default='output/nano_c1_predictions.root',
-                   help='Output ROOT file with predictions')
+    p.add_argument('--process', choices=['zh', 'wh'], default='zh')
+    p.add_argument('--model')
+    p.add_argument('--output')
     p.add_argument('--ebeam', type=float, default=6800.0,
                    help='Beam energy per proton [GeV]')
     p.add_argument('--max-events', type=int, default=0,
                    help='Max events to process (0 = all)')
     p.add_argument('--validate', action='store_true',
                    help='Generate validation plots comparing LO truth vs NanoAOD predicted C1')
-    p.add_argument('--lo-file', default='output/events_lo.root',
-                   help='LO ROOT file for validation (used with --validate)')
-    p.add_argument('--rw-file', default='output/events_rwgt.root',
-                   help='Reweighted ROOT file for validation (used with --validate)')
-    p.add_argument('--plotdir', default='output/plots/nano_validation',
-                   help='Directory for validation plots')
+    p.add_argument('--lo-file')
+    p.add_argument('--rw-file')
+    p.add_argument('--plotdir')
     args = p.parse_args()
+
+    if _IMPORT_ERROR is not None:
+        print(f"Missing dependency: {_IMPORT_ERROR}")
+        print("Install with: pip install uproot awkward xgboost numpy")
+        sys.exit(1)
+
+    repo_root = Path(__file__).resolve().parents[1]
+    paths = build_prediction_paths(
+        repo_root,
+        args.process,
+        model=args.model,
+        output=args.output,
+        lo_file=args.lo_file,
+        rw_file=args.rw_file,
+        plotdir=args.plotdir,
+    )
+    args.model = str(paths["model"])
+    args.output = str(paths["output"])
+    args.lo_file = str(paths["lo_file"])
+    args.rw_file = str(paths["rw_file"])
+    args.plotdir = str(paths["plotdir"])
 
     # Expand glob patterns
     input_files = []
@@ -964,7 +986,7 @@ def main():
         sys.exit(1)
 
     output_path, nano_data = process_nanoaod(
-        input_files, args.model, args.output, args.ebeam, args.max_events
+        input_files, args.model, args.output, args.process, args.ebeam, args.max_events
     )
 
     if args.validate:

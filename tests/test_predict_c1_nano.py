@@ -48,3 +48,20 @@ def test_get_vector_boson_mask_for_wh_selects_both_charges():
     pdgid = ak.Array([[23, 25], [24, 25], [-24, 25]])
     mask = get_vector_boson_mask(pdgid, "wh")
     assert ak.to_list(mask) == [[False, False], [True, False], [True, False]]
+
+
+import numpy as np
+
+from scripts.predict_c1_nano import compute_kappa_weights
+
+
+def test_compute_kappa_weights_uses_process_constants():
+    c1 = np.asarray([1.0], dtype=np.float64)
+
+    zh = compute_kappa_weights(c1, "zh", [1])
+    wh = compute_kappa_weights(c1, "wh", [1])
+
+    assert "weight_kappa_1" in zh
+    assert "weight_kappa_abs_1" in wh
+    assert zh["weight_kappa_abs_1"].shape == (1,)
+    assert wh["weight_kappa_abs_1"].shape == (1,)
