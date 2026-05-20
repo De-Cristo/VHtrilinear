@@ -98,6 +98,14 @@ def event_has_required_bosons(pdgid, process_key):
     else:
         raise KeyError(f"Unknown process: {process_key}")
     return has_h & has_v
+
+
+def get_vector_boson_mask(pdgid, process_key):
+    if process_key == "zh":
+        return pdgid == 23
+    if process_key == "wh":
+        return (pdgid == 24) | (pdgid == -24)
+    raise KeyError(f"Unknown process: {process_key}")
 FEATURE_LABELS = {
     'h_pt': r'$p_T(H)$ [GeV]',
     'v_pt': r'$p_T(Z)$ [GeV]',
@@ -235,12 +243,15 @@ def compute_cos_theta_star(h_px, h_py, h_pz, h_e, v_px, v_py, v_pz, v_e, ebeam):
 # Main processing
 # ═══════════════════════════════════════════════════════
 
-def process_nanoaod(input_files, model_path, output_path, ebeam=6800.0, max_events=0):
+def process_nanoaod(input_files, model_path, output_path, process_key, ebeam=6800.0, max_events=0):
     """Process NanoAOD files: extract LHE kinematics, predict C1, save output."""
+
+    process_spec = get_public_process(process_key)
 
     print(f"\n{'='*60}")
     print(f"  NanoAOD → C1 Prediction Pipeline")
     print(f"{'='*60}")
+    print(f"  Process:      {process_spec.process_label}")
     print(f"  Input files:  {len(input_files)}")
     print(f"  Model:        {model_path}")
     print(f"  Output:       {output_path}")
@@ -263,13 +274,14 @@ def process_nanoaod(input_files, model_path, output_path, ebeam=6800.0, max_even
     all_n_lhe_extra = []
     all_event_file_idx = []  # track which file each event came from
     all_event_local_idx = []  # event index within its file
+    all_v_pdgid = []  # for WH charge auditing
 
     # Also accumulate reco-level info for future training
     reco_data = {b: [] for b in RECO_BRANCHES_OPTIONAL}
     reco_available = set()
 
     total_events = 0
-    total_zh_events = 0
+    total_vh_events = 0
 
     for fi, fpath in enumerate(input_files):
         print(f"\n── Processing {os.path.basename(fpath)} ──")
@@ -298,62 +310,61 @@ def process_nanoaod(input_files, model_path, output_path, ebeam=6800.0, max_even
         n_read = len(lhe)
         total_events += n_read
 
-        # Find Z (pdgId=23) and H (pdgId=25) per event
+        # Find vector boson and H (pdgId=25) per event
         pdgid = lhe['LHEPart_pdgId']
         pt_arr = lhe['LHEPart_pt']
         eta_arr = lhe['LHEPart_eta']
         phi_arr = lhe['LHEPart_phi']
         mass_arr = lhe['LHEPart_mass']
 
-        # Mask for Z and H bosons
-        is_z = (pdgid == 23)
+        # Mask for vector boson and H bosons
+        is_v = get_vector_boson_mask(pdgid, process_key)
         is_h = (pdgid == 25)
 
-        # Check which events have both Z and H
-        has_z = ak.any(is_z, axis=1)
-        has_h = ak.any(is_h, axis=1)
-        has_both = has_z & has_h
+        # Check which events have both required bosons
+        has_both = event_has_required_bosons(pdgid, process_key)
 
-        n_zh = int(ak.sum(has_both))
-        print(f"  Events with Z+H: {n_zh} / {n_read}")
+        n_good = int(ak.sum(has_both))
+        print(f"  Events with {process_spec.display_name}: {n_good} / {n_read}")
 
-        if n_zh == 0:
+        if n_good == 0:
             continue
 
         # Get the local indices of good events
         good_idx = np.where(ak.to_numpy(has_both))[0]
 
         # Slice to only good events
-        pt_zh = pt_arr[has_both]
-        eta_zh = eta_arr[has_both]
-        phi_zh = phi_arr[has_both]
-        mass_zh = mass_arr[has_both]
-        pdgid_zh = pdgid[has_both]
+        pt_vh = pt_arr[has_both]
+        eta_vh = eta_arr[has_both]
+        phi_vh = phi_arr[has_both]
+        mass_vh = mass_arr[has_both]
+        pdgid_vh = pdgid[has_both]
 
-        is_z_zh = (pdgid_zh == 23)
-        is_h_zh = (pdgid_zh == 25)
+        is_v_vh = get_vector_boson_mask(pdgid_vh, process_key)
+        is_h_vh = (pdgid_vh == 25)
 
-        # Extract first Z and first H per event using ak.firsts + boolean masking
-        z_pt = ak.to_numpy(ak.firsts(pt_zh[is_z_zh])).astype(np.float64)
-        z_eta = ak.to_numpy(ak.firsts(eta_zh[is_z_zh])).astype(np.float64)
-        z_phi = ak.to_numpy(ak.firsts(phi_zh[is_z_zh])).astype(np.float64)
-        z_mass = ak.to_numpy(ak.firsts(mass_zh[is_z_zh])).astype(np.float64)
+        # Extract first vector boson and first H per event using ak.firsts + boolean masking
+        v_pt = ak.to_numpy(ak.firsts(pt_vh[is_v_vh])).astype(np.float64)
+        v_eta = ak.to_numpy(ak.firsts(eta_vh[is_v_vh])).astype(np.float64)
+        v_phi = ak.to_numpy(ak.firsts(phi_vh[is_v_vh])).astype(np.float64)
+        v_mass = ak.to_numpy(ak.firsts(mass_vh[is_v_vh])).astype(np.float64)
+        v_pdgid = ak.to_numpy(ak.firsts(pdgid_vh[is_v_vh])).astype(np.int32)
 
-        h_pt_val = ak.to_numpy(ak.firsts(pt_zh[is_h_zh])).astype(np.float64)
-        h_eta_val = ak.to_numpy(ak.firsts(eta_zh[is_h_zh])).astype(np.float64)
-        h_phi_val = ak.to_numpy(ak.firsts(phi_zh[is_h_zh])).astype(np.float64)
-        h_mass_val = ak.to_numpy(ak.firsts(mass_zh[is_h_zh])).astype(np.float64)
+        h_pt_val = ak.to_numpy(ak.firsts(pt_vh[is_h_vh])).astype(np.float64)
+        h_eta_val = ak.to_numpy(ak.firsts(eta_vh[is_h_vh])).astype(np.float64)
+        h_phi_val = ak.to_numpy(ak.firsts(phi_vh[is_h_vh])).astype(np.float64)
+        h_mass_val = ak.to_numpy(ak.firsts(mass_vh[is_h_vh])).astype(np.float64)
 
         # Convert to (px, py, pz, E)
-        z_px, z_py, z_pz, z_e = compute_px_py_pz_e(z_pt, z_eta, z_phi, z_mass)
+        v_px, v_py, v_pz, v_e = compute_px_py_pz_e(v_pt, v_eta, v_phi, v_mass)
         h_px, h_py, h_pz, h_e = compute_px_py_pz_e(h_pt_val, h_eta_val, h_phi_val, h_mass_val)
 
         # Compute derived kinematics
-        # vh_m: invariant mass of ZH system
-        vh_e = z_e + h_e
-        vh_px = z_px + h_px
-        vh_py = z_py + h_py
-        vh_pz = z_pz + h_pz
+        # vh_m: invariant mass of VH system
+        vh_e = v_e + h_e
+        vh_px = v_px + h_px
+        vh_py = v_py + h_py
+        vh_pz = v_pz + h_pz
         vh_m2 = vh_e**2 - (vh_px**2 + vh_py**2 + vh_pz**2)
         vh_m_val = np.sqrt(np.maximum(vh_m2, 0.0))
 
@@ -361,47 +372,48 @@ def process_nanoaod(input_files, model_path, output_path, ebeam=6800.0, max_even
         h_y_val = compute_rapidity(h_e, h_pz)
 
         # vh_delta_eta
-        z_pseudoeta = compute_pseudorapidity(z_px, z_py, z_pz)
+        v_pseudoeta = compute_pseudorapidity(v_px, v_py, v_pz)
         h_pseudoeta = compute_pseudorapidity(h_px, h_py, h_pz)
-        vh_deta = np.abs(z_pseudoeta - h_pseudoeta)
+        vh_deta = np.abs(v_pseudoeta - h_pseudoeta)
 
         # cos_theta_star
-        cos_th = compute_cos_theta_star(h_px, h_py, h_pz, h_e, z_px, z_py, z_pz, z_e, ebeam)
+        cos_th = compute_cos_theta_star(h_px, h_py, h_pz, h_e, v_px, v_py, v_pz, v_e, ebeam)
 
         # Extra NANO validation variables
         vh_pt_gen_val = np.sqrt(vh_px**2 + vh_py**2)
         
-        is_qg_zh = (abs(pdgid_zh) <= 5) | (pdgid_zh == 21)
+        is_qg_vh = (abs(pdgid_vh) <= 5) | (pdgid_vh == 21)
         # Assuming initial partons may have exactly 0 Pt (if LHEPart_pt > 0.1, it's radiation)
-        n_extra_lhe_zh = ak.sum(is_qg_zh & (pt_zh > 0.1), axis=1)
-        n_extra_lhe_np = ak.to_numpy(n_extra_lhe_zh).astype(np.int32)
+        n_extra_lhe_vh = ak.sum(is_qg_vh & (pt_vh > 0.1), axis=1)
+        n_extra_lhe_np = ak.to_numpy(n_extra_lhe_vh).astype(np.int32)
 
         # Accumulate
         all_h_pt.append(h_pt_val)
-        all_v_pt.append(z_pt)
+        all_v_pt.append(v_pt)
         all_vh_m.append(vh_m_val)
         all_cos_theta_star.append(cos_th)
         all_h_y.append(h_y_val)
         all_vh_delta_eta.append(vh_deta)
         all_vh_pt_gen.append(vh_pt_gen_val)
         all_n_lhe_extra.append(n_extra_lhe_np)
-        all_event_file_idx.append(np.full(n_zh, fi, dtype=np.int32))
+        all_event_file_idx.append(np.full(n_good, fi, dtype=np.int32))
         all_event_local_idx.append(good_idx.astype(np.int64))
+        all_v_pdgid.append(v_pdgid)
 
-        total_zh_events += n_zh
-        print(f"  [✓] Extracted {n_zh} ZH events")
+        total_vh_events += n_good
+        print(f"  [✓] Extracted {n_good} {process_spec.display_name} events")
 
         # Read reco-level branches if available (for future reco-level training)
         for rb in RECO_BRANCHES_OPTIONAL:
             if rb in available_keys:
                 reco_available.add(rb)
 
-    if total_zh_events == 0:
-        print("\n  [!] No ZH events found in any input file. Exiting.")
+    if total_vh_events == 0:
+        print(f"\n  [!] No {process_spec.display_name} events found in any input file. Exiting.")
         sys.exit(1)
 
     # ── Concatenate all events ──
-    print(f"\n── Merging {total_zh_events} ZH events from {len(input_files)} files ──")
+    print(f"\n── Merging {total_vh_events} {process_spec.display_name} events from {len(input_files)} files ──")
     h_pt_all = np.concatenate(all_h_pt)
     v_pt_all = np.concatenate(all_v_pt)
     vh_m_all = np.concatenate(all_vh_m)
@@ -412,6 +424,7 @@ def process_nanoaod(input_files, model_path, output_path, ebeam=6800.0, max_even
     n_lhe_extra_all = np.concatenate(all_n_lhe_extra)
     file_idx_all = np.concatenate(all_event_file_idx)
     local_idx_all = np.concatenate(all_event_local_idx)
+    v_pdgid_all = np.concatenate(all_v_pdgid) if all_v_pdgid else np.array([], dtype=np.int32)
 
     # ── Build feature matrix (same order as training) ──
     X = np.column_stack([h_pt_all, v_pt_all, vh_m_all, cos_th_all, h_y_all, vh_deta_all])
@@ -478,6 +491,8 @@ def process_nanoaod(input_files, model_path, output_path, ebeam=6800.0, max_even
         'n_lhe_extra': n_lhe_extra_all.astype(np.int32),
         'file_idx': file_idx_all,
         'event_idx': local_idx_all,
+        'v_pdgid': v_pdgid_all,
+        'subchannel': np.where(v_pdgid_all > 0, 0, 1).astype(np.int8),
     }
     out_dict.update(kappa_weights)
 
@@ -485,14 +500,14 @@ def process_nanoaod(input_files, model_path, output_path, ebeam=6800.0, max_even
         fout['events'] = out_dict
 
     print(f"  [✓] {output_path}")
-    print(f"       {total_zh_events} events, {len(out_dict)} branches:")
+    print(f"       {total_vh_events} events, {len(out_dict)} branches:")
     for k in out_dict:
         print(f"         {k}")
 
     # ── Summary ──
     print(f"\n{'='*60}")
     print(f"  C1 prediction complete!")
-    print(f"  Input:  {total_events} total events → {total_zh_events} ZH events")
+    print(f"  Input:  {total_events} total events → {total_vh_events} {process_spec.display_name} events")
     print(f"  Output: {output_path}")
     print(f"  Model:  {model_path}")
     print(f"{'='*60}")

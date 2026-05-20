@@ -33,3 +33,18 @@ def test_event_has_required_bosons_for_wh():
     pdgid = ak.Array([[23, 25], [24, 25], [-24, 25], [24], [25]])
     mask = event_has_required_bosons(pdgid, "wh")
     assert ak.to_list(mask) == [False, True, True, False, False]
+
+
+from scripts.predict_c1_nano import get_vector_boson_mask
+
+
+def test_get_vector_boson_mask_for_zh_selects_only_z():
+    pdgid = ak.Array([[23, 25], [24, 25], [-24, 25]])
+    mask = get_vector_boson_mask(pdgid, "zh")
+    assert ak.to_list(mask) == [[True, False], [False, False], [False, False]]
+
+
+def test_get_vector_boson_mask_for_wh_selects_both_charges():
+    pdgid = ak.Array([[23, 25], [24, 25], [-24, 25]])
+    mask = get_vector_boson_mask(pdgid, "wh")
+    assert ak.to_list(mask) == [[False, False], [True, False], [True, False]]
