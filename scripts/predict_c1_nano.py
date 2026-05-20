@@ -32,14 +32,23 @@ import glob
 import math
 import numpy as np
 
+from pathlib import Path
+
+# Allow running script directly while importing sibling modules
+_repo_root = Path(__file__).resolve().parents[1]
+if str(_repo_root) not in sys.path:
+    sys.path.insert(0, str(_repo_root))
+
+from scripts.vh_processes import get_output_dir, get_public_process
+
 try:
     import uproot
     import awkward as ak
     import xgboost as xgb
 except ImportError as e:
-    print(f"Missing dependency: {e}")
-    print("Install with: pip install uproot awkward xgboost numpy")
-    sys.exit(1)
+    _IMPORT_ERROR = e
+else:
+    _IMPORT_ERROR = None
 
 try:
     import matplotlib
@@ -67,6 +76,28 @@ except ImportError:
 
 # ── Feature list: must match training order in train_c1_regressor.py ──
 FEATURES = ['h_pt', 'v_pt', 'vh_m', 'cos_theta_star', 'h_y', 'vh_delta_eta']
+
+
+def build_prediction_paths(repo_root, process_key, model=None, output=None, lo_file=None, rw_file=None, plotdir=None):
+    base = get_output_dir(repo_root, process_key)
+    return {
+        "model": Path(model) if model is not None else base / "c1_regressor" / "c1_regressor.json",
+        "output": Path(output) if output is not None else base / "nano_c1_predictions.root",
+        "lo_file": Path(lo_file) if lo_file is not None else base / "events_lo.root",
+        "rw_file": Path(rw_file) if rw_file is not None else base / "events_rwgt.root",
+        "plotdir": Path(plotdir) if plotdir is not None else base / "plots" / "nano_validation",
+    }
+
+
+def event_has_required_bosons(pdgid, process_key):
+    has_h = ak.any(pdgid == 25, axis=1)
+    if process_key == "zh":
+        has_v = ak.any(pdgid == 23, axis=1)
+    elif process_key == "wh":
+        has_v = ak.any((pdgid == 24) | (pdgid == -24), axis=1)
+    else:
+        raise KeyError(f"Unknown process: {process_key}")
+    return has_h & has_v
 FEATURE_LABELS = {
     'h_pt': r'$p_T(H)$ [GeV]',
     'v_pt': r'$p_T(Z)$ [GeV]',
