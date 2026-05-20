@@ -88,21 +88,25 @@ To apply the C₁ correction directly to reconstructed events (e.g., NanoAOD) wi
 ### 1. Model Training
 Train the XGBoost model using the generated LO and reweighted ROOT files:
 ```bash
-python3 scripts/train_c1_regressor.py
+python3 scripts/train_c1_regressor.py --process zh
+python3 scripts/train_c1_regressor.py --process wh
 ```
-This generates the trained model (`output/c1_regressor/c1_regressor.json`), an ONNX export (`c1_regressor.onnx`), and training validation profile plots.
+This generates the trained model (`output/<process>/c1_regressor/c1_regressor.json`), an ONNX export (`c1_regressor.onnx`), and training validation profile plots.
 
 ### 2. NanoAOD Prediction & Validation
 Apply the trained regressor to NanoAOD files using their `LHEPart` branches:
 ```bash
 python3 scripts/predict_c1_nano.py \
+    --process zh \
     --input nanoAOD_temp/*.root \
-    --model output/c1_regressor/c1_regressor.json \
-    --validate \
-    --lo-file output/events_lo.root \
-    --rw-file output/events_rwgt.root
+    --validate
+
+python3 scripts/predict_c1_nano.py \
+    --process wh \
+    --input nanoAOD_temp/*.root \
+    --validate
 ```
-The `--validate` flag performs a closure test, generating kinematic profile plots comparing the NanoAOD predictions back against the ground-truth LO sample in `output/plots/nano_validation/`.
+The `--validate` flag performs a closure test, generating kinematic profile plots comparing the NanoAOD predictions back against the ground-truth LO sample in `output/<process>/plots/nano_validation/`.
 
 ---
 
@@ -118,11 +122,21 @@ output/
 │   ├── events_lo.root
 │   ├── events_rwgt.root
 │   ├── events_l3corr_*.root
+│   ├── c1_regressor/
+│   │   ├── c1_regressor.json
+│   │   ├── c1_regressor.onnx
+│   │   └── *.png
+│   ├── nano_c1_predictions.root
 │   └── plots/
 └── wh/
     ├── events_lo.root
     ├── events_rwgt.root
     ├── events_l3corr_*.root
+    ├── c1_regressor/
+    │   ├── c1_regressor.json
+    │   ├── c1_regressor.onnx
+    │   └── *.png
+    ├── nano_c1_predictions.root
     └── plots/
 ```
 
