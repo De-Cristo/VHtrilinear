@@ -36,40 +36,63 @@ try:
     import matplotlib.pyplot as plt
     import matplotlib as mpl
 except ImportError as e:
-    print(f"Missing dependency: {e}")
-    print("Install with: pip install uproot xgboost scikit-learn matplotlib numpy")
-    sys.exit(1)
+    _IMPORT_ERROR = e
+else:
+    _IMPORT_ERROR = None
 
 # ── Matplotlib HEP style ──
-mpl.rcParams.update({
-    'font.family': 'sans-serif',
-    'font.sans-serif': ['Helvetica', 'DejaVu Sans'],
-    'axes.linewidth': 1.2,
-    'font.size': 12,
-    'axes.titlesize': 13,
-    'axes.labelsize': 12,
-    'legend.fontsize': 10,
-    'xtick.direction': 'in',
-    'ytick.direction': 'in',
-    'xtick.top': True,
-    'ytick.right': True,
-})
-# Only use LaTeX if available
-try:
-    mpl.rcParams['text.usetex'] = True
-except Exception:
-    mpl.rcParams['text.usetex'] = False
+if _IMPORT_ERROR is None:
+    mpl.rcParams.update({
+        'font.family': 'sans-serif',
+        'font.sans-serif': ['Helvetica', 'DejaVu Sans'],
+        'axes.linewidth': 1.2,
+        'font.size': 12,
+        'axes.titlesize': 13,
+        'axes.labelsize': 12,
+        'legend.fontsize': 10,
+        'xtick.direction': 'in',
+        'ytick.direction': 'in',
+        'xtick.top': True,
+        'ytick.right': True,
+    })
+    try:
+        mpl.rcParams['text.usetex'] = True
+    except Exception:
+        mpl.rcParams['text.usetex'] = False
+
+from pathlib import Path
+
+from scripts.vh_processes import get_public_process, get_output_dir
+
 
 # ── Features ──
 FEATURES = ['h_pt', 'v_pt', 'vh_m', 'cos_theta_star', 'h_y', 'vh_delta_eta']
-FEATURE_LABELS = {
-    'h_pt': r'$p_T(H)$ [GeV]',
-    'v_pt': r'$p_T(Z)$ [GeV]',
-    'vh_m': r'$m(ZH)$ [GeV]',
-    'cos_theta_star': r'$\cos\theta^*$',
-    'h_y': r'$y(H)$',
-    'vh_delta_eta': r'$\Delta\eta(Z,H)$',
-}
+
+
+def get_feature_labels(process_key):
+    process_spec = get_public_process(process_key)
+    v = process_spec.vector_label
+    vh = process_spec.display_name
+    return {
+        'h_pt': r'$p_T(H)$ [GeV]',
+        'v_pt': rf'$p_T({v})$ [GeV]',
+        'vh_m': rf'$m({vh})$ [GeV]',
+        'cos_theta_star': r'$\cos\theta^*$',
+        'h_y': r'$y(H)$',
+        'vh_delta_eta': rf'$\Delta\eta({v},H)$',
+    }
+
+
+FEATURE_LABELS = get_feature_labels("zh")
+
+
+def build_training_paths(repo_root, process_key, lo_file=None, rw_file=None, outdir=None):
+    base = get_output_dir(repo_root, process_key)
+    return {
+        "lo_file": Path(lo_file) if lo_file is not None else base / "events_lo.root",
+        "rw_file": Path(rw_file) if rw_file is not None else base / "events_rwgt.root",
+        "outdir": Path(outdir) if outdir is not None else base / "c1_regressor",
+    }
 
 
 # ═══════════════════════════════════════════════════════
