@@ -98,15 +98,16 @@ Apply the trained regressor to NanoAOD files using their `LHEPart` branches:
 ```bash
 python3 scripts/predict_c1_nano.py \
     --process zh \
-    --input nanoAOD_temp/*.root \
+    --input nanoAOD_temp/ZH \
     --validate
 
 python3 scripts/predict_c1_nano.py \
     --process wh \
-    --input nanoAOD_temp/*.root \
+    --input nanoAOD_temp/WH \
     --validate
 ```
 The `--validate` flag performs a closure test, generating kinematic profile plots comparing the NanoAOD predictions back against the ground-truth LO sample in `output/<process>/plots/nano_validation/`.
+If `--input` is omitted, the script now defaults to `nanoAOD_temp/ZH/` for `--process zh` and `nanoAOD_temp/WH/` for `--process wh`.
 
 ---
 

@@ -5,7 +5,9 @@ import numpy as np
 
 from scripts.predict_c1_nano import (
     build_prediction_paths,
+    get_default_nanoaod_dir,
     event_has_required_bosons,
+    resolve_input_files,
 )
 
 
@@ -21,6 +23,37 @@ def test_build_prediction_paths_follow_process_layout():
     assert wh["model"] == repo_root / "output" / "wh" / "c1_regressor" / "c1_regressor.json"
     assert wh["output"] == repo_root / "output" / "wh" / "nano_c1_predictions.root"
     assert wh["plotdir"] == repo_root / "output" / "wh" / "plots" / "nano_validation"
+
+
+def test_default_nanoaod_dir_tracks_process_layout():
+    repo_root = Path("/repo")
+
+    assert get_default_nanoaod_dir(repo_root, "zh") == repo_root / "nanoAOD_temp" / "ZH"
+    assert get_default_nanoaod_dir(repo_root, "wh") == repo_root / "nanoAOD_temp" / "WH"
+
+
+def test_resolve_input_files_uses_process_default_directory(tmp_path):
+    zh_dir = tmp_path / "nanoAOD_temp" / "ZH"
+    zh_dir.mkdir(parents=True)
+    keep = zh_dir / "sample.root"
+    keep.write_text("")
+
+    files = resolve_input_files(tmp_path, "zh", None)
+
+    assert files == [str(keep)]
+
+
+def test_resolve_input_files_accepts_directory_arguments(tmp_path):
+    wh_dir = tmp_path / "WH"
+    wh_dir.mkdir()
+    first = wh_dir / "a.root"
+    second = wh_dir / "b.root"
+    first.write_text("")
+    second.write_text("")
+
+    files = resolve_input_files(tmp_path, "wh", [str(wh_dir)])
+
+    assert files == [str(first), str(second)]
 
 
 def test_event_has_required_bosons_for_zh():

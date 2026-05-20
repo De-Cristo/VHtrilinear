@@ -5,7 +5,7 @@ using LHE-level particle information and the trained XGBoost regressor.
 
 Workflow:
   1. Read NanoAOD ROOT file(s) containing LHEPart branches
-  2. Identify Z (pdgId=23) and H (pdgId=25) from LHEPart arrays
+  2. Identify the requested VH bosons from LHEPart arrays
   3. Compute the 6 truth-level kinematic features used by the C1 regressor:
      h_pt, v_pt, vh_m, cos_theta_star, h_y, vh_delta_eta
   4. Run XGBoost inference to predict C1_NLO per event
@@ -13,14 +13,15 @@ Workflow:
 
 Usage:
   python3 scripts/predict_c1_nano.py \\
-      --input nanoAOD_temp/*.root \\
+      --process zh \\
+      --input nanoAOD_temp/ZH/*.root \\
       --model output/c1_regressor/c1_regressor.json \\
       --output output/nano_c1_predictions.root \\
       --ebeam 6800
 
 Options:
-  --input       Input NanoAOD ROOT file(s)                [required]
-  --model       Path to trained XGBoost model (.json)     [required]
+  --input       Input NanoAOD ROOT file(s) or directories [default: nanoAOD_temp/<PROCESS>/]
+  --model       Path to trained XGBoost model (.json)     [default: output/<process>/c1_regressor/c1_regressor.json]
   --output      Output ROOT file with predictions         [default: output/nano_c1_predictions.root]
   --ebeam       Beam energy per proton [GeV]              [default: 6800]
   --max-events  Max events to process (0 = all)           [default: 0]
@@ -87,6 +88,28 @@ def build_prediction_paths(repo_root, process_key, model=None, output=None, lo_f
         "rw_file": Path(rw_file) if rw_file is not None else base / "events_rwgt.root",
         "plotdir": Path(plotdir) if plotdir is not None else base / "plots" / "nano_validation",
     }
+
+
+def get_default_nanoaod_dir(repo_root, process_key):
+    process_dirname = process_key.upper()
+    return Path(repo_root) / "nanoAOD_temp" / process_dirname
+
+
+def resolve_input_files(repo_root, process_key, inputs):
+    patterns = list(inputs) if inputs else [str(get_default_nanoaod_dir(repo_root, process_key))]
+    files = []
+
+    for item in patterns:
+        path = Path(item)
+        if path.is_dir():
+            expanded = sorted(str(p) for p in path.glob("*.root"))
+        else:
+            expanded = sorted(glob.glob(item))
+        if not expanded:
+            print(f"Warning: no files match '{item}'")
+        files.extend(expanded)
+
+    return files
 
 
 def event_has_required_bosons(pdgid, process_key):
@@ -966,8 +989,8 @@ def main():
         description='Predict per-event C1 (NLO EW correction) on NanoAOD events using LHE-level info',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    p.add_argument('--input', nargs='+', required=True,
-                   help='Input NanoAOD ROOT file(s), supports glob patterns')
+    p.add_argument('--input', nargs='+',
+                   help='Input NanoAOD ROOT file(s), directories, or glob patterns')
     p.add_argument('--process', choices=['zh', 'wh'], default='zh')
     p.add_argument('--model')
     p.add_argument('--output')
@@ -1003,13 +1026,7 @@ def main():
     args.rw_file = str(paths["rw_file"])
     args.plotdir = str(paths["plotdir"])
 
-    # Expand glob patterns
-    input_files = []
-    for pattern in args.input:
-        expanded = sorted(glob.glob(pattern))
-        if not expanded:
-            print(f"Warning: no files match '{pattern}'")
-        input_files.extend(expanded)
+    input_files = resolve_input_files(repo_root, args.process, args.input)
 
     if not input_files:
         print("Error: no input files found")
