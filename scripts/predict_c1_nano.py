@@ -108,6 +108,34 @@ def get_vector_boson_mask(pdgid, process_key):
     raise KeyError(f"Unknown process: {process_key}")
 
 
+def get_prediction_plot_metadata(process_key):
+    spec = get_public_process(process_key)
+    return {
+        "process_label": spec.process_label,
+        "vector_label": spec.vector_label,
+        "dataset_label": spec.display_name,
+    }
+
+
+def get_feature_labels(process_key):
+    meta = get_prediction_plot_metadata(process_key)
+    v = meta["vector_label"]
+    vh = meta["dataset_label"]
+    labels = {
+        'h_pt': r'$p_T(H)$ [GeV]',
+        'v_pt': rf'$p_T({v})$ [GeV]',
+        'vh_m': rf'$m({vh})$ [GeV]',
+        'cos_theta_star': r'$\cos\theta^*$',
+        'h_y': r'$y(H)$',
+        'vh_delta_eta': rf'$|\Delta\eta({v}, H)|$',
+    }
+    labels.update({
+        'vh_pt_gen': rf'$p_T({vh})_{{\rm LHE}}$ [GeV]',
+        'n_lhe_extra': r'$N_{\rm extra}^{\rm LHE}$',
+    })
+    return labels
+
+
 def compute_kappa_weights(c1_percent, process_key, target_kappas):
     spec = get_public_process(process_key)
     delta_h = spec.delta_h
@@ -567,11 +595,14 @@ def load_lo_truth_c1(lo_file, rw_file):
     return c1_true, feats
 
 
-def make_validation_plots(nano_data, lo_file, rw_file, plotdir):
+def make_validation_plots(nano_data, lo_file, rw_file, plotdir, process_key):
     """Generate validation plots comparing LO truth C1 vs NanoAOD predicted C1."""
     if not HAS_MPL:
         print("  [!] matplotlib not available — skipping validation plots")
         return
+
+    meta = get_prediction_plot_metadata(process_key)
+    feature_labels = get_feature_labels(process_key)
 
     os.makedirs(plotdir, exist_ok=True)
     print(f"\n── Generating validation plots ──")
@@ -621,7 +652,7 @@ def make_validation_plots(nano_data, lo_file, rw_file, plotdir):
 
     # ── Plot 2: Per-feature C1 profile comparisons ──
     for feat in FEATURES:
-        label = FEATURE_LABELS.get(feat, feat)
+        label = feature_labels.get(feat, feat)
         x_lo = feats_lo[feat]
         x_nano = nano_data[feat]
 
@@ -692,7 +723,7 @@ def make_validation_plots(nano_data, lo_file, rw_file, plotdir):
 
     # ── Plot 3: Feature distribution comparisons ──
     for feat in FEATURES:
-        label = FEATURE_LABELS.get(feat, feat)
+        label = feature_labels.get(feat, feat)
         x_lo = feats_lo[feat]
         x_nano = nano_data[feat]
 
@@ -737,7 +768,7 @@ def make_validation_plots(nano_data, lo_file, rw_file, plotdir):
 
     # ── Plot 4: Combined Feature Density + C1 Profile ──
     for feat in FEATURES + EXTRA_NANO_FEATURES:
-        label = FEATURE_LABELS.get(feat, feat)
+        label = feature_labels.get(feat, feat)
         is_extra = feat in EXTRA_NANO_FEATURES
         
         x_nano = nano_data[feat]
@@ -817,8 +848,11 @@ def make_validation_plots(nano_data, lo_file, rw_file, plotdir):
     print(f"  All validation plots saved to {plotdir}/")
 
 
-def make_kappa_plots(nano_data, plotdir, absolute=False):
+def make_kappa_plots(nano_data, plotdir, process_key, absolute=False):
     """Plot kinematic distributions weighted by R(kappa) for various kappas with CMS style."""
+    meta = get_prediction_plot_metadata(process_key)
+    feature_labels = get_feature_labels(process_key)
+
     print(f"\n── Generating Kappa variations plots (Absolute={absolute}) ──")
     outdir_name = 'kappa_variations_abs' if absolute else 'kappa_variations_norm'
     outdir = os.path.join(plotdir, outdir_name)
@@ -838,7 +872,7 @@ def make_kappa_plots(nano_data, plotdir, absolute=False):
         return f'weight_kappa_abs_{k}' if absolute else f'weight_kappa_{k}'
 
     for feat in FEATURES + EXTRA_NANO_FEATURES:
-        label = FEATURE_LABELS.get(feat, feat)
+        label = feature_labels.get(feat, feat)
         x_nano = nano_data[feat]
 
         fig, (ax_t, ax_b) = plt.subplots(
@@ -916,7 +950,7 @@ def make_kappa_plots(nano_data, plotdir, absolute=False):
         # CMS style Titles
         ax_t.text(0.0, 1.02, r'\textbf{CMS} \textit{Simulation}', 
                   transform=ax_t.transAxes, fontsize=14, va='bottom', ha='left')
-        ax_t.text(1.0, 1.02, r'ZH (13.6 TeV)', 
+        ax_t.text(1.0, 1.02, meta["process_label"], 
                   transform=ax_t.transAxes, fontsize=12, va='bottom', ha='right')
 
         plt.tight_layout()
@@ -996,9 +1030,9 @@ def main():
         if not os.path.isfile(args.rw_file):
             print(f"Error: reweighted file not found: {args.rw_file}")
             sys.exit(1)
-        make_validation_plots(nano_data, args.lo_file, args.rw_file, args.plotdir)
-        make_kappa_plots(nano_data, args.plotdir, absolute=False)
-        make_kappa_plots(nano_data, args.plotdir, absolute=True)
+        make_validation_plots(nano_data, args.lo_file, args.rw_file, args.plotdir, args.process)
+        make_kappa_plots(nano_data, args.plotdir, args.process, absolute=False)
+        make_kappa_plots(nano_data, args.plotdir, args.process, absolute=True)
 
 
 if __name__ == '__main__':

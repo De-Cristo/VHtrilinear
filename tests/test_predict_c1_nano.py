@@ -65,3 +65,19 @@ def test_compute_kappa_weights_uses_process_constants():
     assert "weight_kappa_abs_1" in wh
     assert zh["weight_kappa_abs_1"].shape == (1,)
     assert wh["weight_kappa_abs_1"].shape == (1,)
+
+
+from scripts.predict_c1_nano import get_prediction_plot_metadata
+
+
+def test_prediction_plot_metadata_tracks_process_labels():
+    zh = get_prediction_plot_metadata("zh")
+    wh = get_prediction_plot_metadata("wh")
+
+    assert zh["process_label"] == "ZH (13.6 TeV)"
+    assert zh["vector_label"] == "Z"
+    assert zh["dataset_label"] == "ZH"
+
+    assert wh["process_label"] == "WH (13.6 TeV)"
+    assert wh["vector_label"] == "W"
+    assert wh["dataset_label"] == "WH"
