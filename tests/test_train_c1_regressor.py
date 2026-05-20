@@ -46,3 +46,19 @@ def test_feature_labels_switch_between_zh_and_wh():
     assert wh["v_pt"] == r"$p_T(W)$ [GeV]"
     assert wh["vh_m"] == r"$m(WH)$ [GeV]"
     assert wh["vh_delta_eta"] == r"$\Delta\eta(W,H)$"
+
+
+from scripts.train_c1_regressor import build_training_metadata
+
+
+def test_training_metadata_uses_process_labels():
+    zh = build_training_metadata("zh")
+    wh = build_training_metadata("wh")
+
+    assert zh["process_label"] == "ZH (13.6 TeV)"
+    assert zh["vector_label"] == "Z"
+    assert zh["dataset_label"] == "ZH"
+
+    assert wh["process_label"] == "WH (13.6 TeV)"
+    assert wh["vector_label"] == "W"
+    assert wh["dataset_label"] == "WH"

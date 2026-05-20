@@ -62,6 +62,11 @@ if _IMPORT_ERROR is None:
 
 from pathlib import Path
 
+# Allow running script directly while importing sibling modules
+_repo_root = Path(__file__).resolve().parents[1]
+if str(_repo_root) not in sys.path:
+    sys.path.insert(0, str(_repo_root))
+
 from scripts.vh_processes import get_public_process, get_output_dir
 
 
@@ -92,6 +97,15 @@ def build_training_paths(repo_root, process_key, lo_file=None, rw_file=None, out
         "lo_file": Path(lo_file) if lo_file is not None else base / "events_lo.root",
         "rw_file": Path(rw_file) if rw_file is not None else base / "events_rwgt.root",
         "outdir": Path(outdir) if outdir is not None else base / "c1_regressor",
+    }
+
+
+def build_training_metadata(process_key):
+    spec = get_public_process(process_key)
+    return {
+        "process_label": spec.process_label,
+        "vector_label": spec.vector_label,
+        "dataset_label": spec.display_name,
     }
 
 
@@ -407,12 +421,13 @@ def plot_c1_distribution(y_true, y_pred, outdir, label='test'):
 
 def main():
     p = argparse.ArgumentParser(
-        description='Train XGBoost regressor to predict per-event C1 from ZH kinematics',
+        description='Train XGBoost regressor to predict per-event C1 from VH kinematics',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    p.add_argument('--lo-file', default='output/events_lo.root')
-    p.add_argument('--rw-file', default='output/events_rwgt.root')
-    p.add_argument('--outdir', default='output/c1_regressor')
+    p.add_argument('--process', choices=['zh', 'wh'], default='zh')
+    p.add_argument('--lo-file')
+    p.add_argument('--rw-file')
+    p.add_argument('--outdir')
     p.add_argument('--test-frac', type=float, default=0.2)
     p.add_argument('--n-rounds', type=int, default=500)
     p.add_argument('--lr', type=float, default=0.05)
@@ -421,12 +436,31 @@ def main():
     p.add_argument('--gpu', action='store_true', help='Use GPU for XGBoost training')
     args = p.parse_args()
 
+    if _IMPORT_ERROR is not None:
+        print(f"Missing dependency: {_IMPORT_ERROR}")
+        print("Install with: pip install uproot xgboost scikit-learn matplotlib numpy")
+        sys.exit(1)
+
+    repo_root = Path(__file__).resolve().parents[1]
+    paths = build_training_paths(repo_root, args.process, args.lo_file, args.rw_file, args.outdir)
+    meta = build_training_metadata(args.process)
+
+    args.lo_file = str(paths["lo_file"])
+    args.rw_file = str(paths["rw_file"])
+    args.outdir = str(paths["outdir"])
+
+    global FEATURE_LABELS
+    FEATURE_LABELS = get_feature_labels(args.process)
+
     os.makedirs(args.outdir, exist_ok=True)
 
     # ── Step 1: Load data ──
     print("\n" + "=" * 60)
     print("  C1 Regressor Training Pipeline")
     print("=" * 60)
+    print(f"  Process:       {meta['process_label']}")
+    print(f"  LO ROOT:       {args.lo_file}")
+    print(f"  RW ROOT:       {args.rw_file}")
     print("\n── Step 1: Loading data ──")
     X, y, features = load_data(args.lo_file, args.rw_file)
 
@@ -476,6 +510,9 @@ def main():
         'best_iteration': int(model.best_iteration),
         'features': features,
         'hyperparams': params,
+        'process': args.process,
+        'process_label': meta['process_label'],
+        'vector_label': meta['vector_label'],
     }
 
     print(f"  RMSE:          {rmse:.4f}%")
