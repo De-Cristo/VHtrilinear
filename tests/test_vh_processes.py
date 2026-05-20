@@ -46,3 +46,8 @@ def test_card_paths_match_process_layout():
     assert wh.param_card == "cards/wh/param_card.dat"
     assert wh.subchannels[0].proc_card == "cards/wh/proc_card_wp.dat"
     assert wh.subchannels[1].proc_card == "cards/wh/proc_card_wm.dat"
+
+
+def test_process_specific_theory_c1_values_are_exposed():
+    assert get_public_process("zh").theory_c1_percent == 1.19
+    assert get_public_process("wh").theory_c1_percent == 1.03

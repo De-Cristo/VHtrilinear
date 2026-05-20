@@ -39,6 +39,7 @@ def main():
     p.add_argument('--pt-max', type=float, default=500.0)
     p.add_argument('--nbins', type=int, default=20)
     p.add_argument('--process-label', default='ZH (13.6 TeV)')
+    p.add_argument('--theory-c1', type=float, default=1.19)
     p.add_argument('--vector-label', default='Z')
     args = p.parse_args()
 
@@ -93,8 +94,7 @@ def main():
     ax.step(bins[:-1], mean_per_bin, where='post', color='green', linewidth=1.8, label='Differential')
     # inclusive code
     ax.hlines(inclusive_mean, bins[0], bins[-1], color='blue', linewidth=2.0, label='Inclusive (code)')
-    # inclusive theory at 1.19%
-    theory = 1.19
+    theory = args.theory_c1
     ax.hlines(theory, bins[0], bins[-1], color='blue', linewidth=2.0, linestyle='--', label='Inclusive (theory)')
 
     ax.set_xlim(bins[0], bins[-1])

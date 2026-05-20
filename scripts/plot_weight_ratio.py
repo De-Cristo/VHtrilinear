@@ -56,6 +56,7 @@ def main():
     p.add_argument('--out', default='weight_ratio.png', help='Output filename')
     p.add_argument('--bins', type=int, default=50, help='Number of bins')
     p.add_argument('--process-label', default='ZH (13.6 TeV)')
+    p.add_argument('--theory-c1', type=float, default=1.19)
     p.add_argument('--vector-label', default='Z')
     args = p.parse_args()
 
@@ -128,10 +129,9 @@ def main():
     ax.axvline(mean_ratio, color='green', linestyle='-.', linewidth=1.5,
                label=f'Mean = {mean_ratio:.3f} \\%')
 
-    # Theoretical reference line at 1.19%
-    theory_val = 1.19
+    theory_val = args.theory_c1
     ax.axvline(theory_val, color='purple', linestyle='--', linewidth=1.5,
-               label='Theory (13TeV) = 1.19 \\%')
+               label=f'Theory = {theory_val:.2f} \\%')
     
     # Labels and styling
     # escape percent sign so it renders when text.usetex=True

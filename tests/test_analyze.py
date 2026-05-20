@@ -1,4 +1,6 @@
 from pathlib import Path
+import sys
+import types
 
 import scripts.analyze as analyze
 
@@ -54,6 +56,39 @@ def test_step_process_lhe_to_root_builds_wh_internal_roots_before_merge(monkeypa
     ]
     assert merges[0][1] == tmp_path / "output" / "wh" / "events_lo.root"
     assert merges[1][1] == tmp_path / "output" / "wh" / "events_rwgt.root"
+
+
+def test_step_plots_passes_process_specific_theory_c1(monkeypatch, tmp_path):
+    argv_calls = []
+
+    def fake_call(main_fn, argv):
+        argv_calls.append(argv)
+
+    fake_module = types.SimpleNamespace(main=lambda: 0)
+    monkeypatch.setattr(analyze, "_call_with_argv", fake_call)
+    monkeypatch.setitem(sys.modules, "plot_weight_ratio", fake_module)
+    monkeypatch.setitem(sys.modules, "plot_C1_vs_pt", fake_module)
+    monkeypatch.setitem(sys.modules, "compare_and_C1", fake_module)
+    monkeypatch.setitem(sys.modules, "compare_roots", fake_module)
+    monkeypatch.setitem(sys.modules, "plot_kappa3", types.SimpleNamespace(process_and_plot=lambda **kwargs: None))
+
+    plotdir = tmp_path / "plots"
+    plotdir.mkdir()
+
+    analyze.step_plots(
+        lo_root=str(tmp_path / "events_lo.root"),
+        rw_root=str(tmp_path / "events_rwgt.root"),
+        plotdir=str(plotdir),
+        kappas=[1.0],
+        feature="h_pt",
+        process_spec=get_public_process("wh"),
+    )
+
+    theory_argvs = [argv for argv in argv_calls if "--theory-c1" in argv]
+    assert len(theory_argvs) == 3
+    for argv in theory_argvs:
+        idx = argv.index("--theory-c1")
+        assert argv[idx + 1] == "1.03"
 
 
 from scripts.vh_processes import get_public_process

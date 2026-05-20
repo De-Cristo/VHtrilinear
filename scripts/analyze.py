@@ -195,6 +195,7 @@ def step_plots(lo_root, rw_root, plotdir, kappas, feature, process_spec):
         plot_weight_ratio.main,
         ['plot_weight_ratio.py', lo_root, rw_root, '--out', out,
          '--process-label', process_spec.process_label,
+         '--theory-c1', str(process_spec.theory_c1_percent),
          '--vector-label', process_spec.vector_label]
     )
     _ok(f"weight_ratio.png")
@@ -205,6 +206,7 @@ def step_plots(lo_root, rw_root, plotdir, kappas, feature, process_spec):
         plot_C1_vs_pt.main,
         ['plot_C1_vs_pt.py', lo_root, rw_root, '--out', out,
          '--process-label', process_spec.process_label,
+         '--theory-c1', str(process_spec.theory_c1_percent),
          '--vector-label', process_spec.vector_label]
     )
     _ok(f"C1_vs_pt.png")
@@ -215,6 +217,7 @@ def step_plots(lo_root, rw_root, plotdir, kappas, feature, process_spec):
         compare_and_C1.main,
         ['compare_and_C1.py', lo_root, rw_root, '--out', out,
          '--process-label', process_spec.process_label,
+         '--theory-c1', str(process_spec.theory_c1_percent),
          '--vector-label', process_spec.vector_label]
     )
     _ok(f"compare_and_C1.png (+ variant plots)")

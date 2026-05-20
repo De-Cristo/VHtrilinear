@@ -38,7 +38,7 @@ def load_tree(rootfile, varname='h_pt'):
     return eid, w, pt
 
 
-def process_and_plot(fileA, fileB, varname, outname, args, process_label='ZH (13.6 TeV)', vector_label='Z'):
+def process_and_plot(fileA, fileB, varname, outname, args, process_label='ZH (13.6 TeV)', vector_label='Z', theory_c1=1.19):
     """Load variable `varname` from both files and produce the two-panel plot saved to outname."""
     try:
         idA, wA, ptA = load_tree(fileA, varname=varname)
@@ -128,7 +128,7 @@ def process_and_plot(fileA, fileB, varname, outname, args, process_label='ZH (13
                 mean_per_bin[ib] = np.sum(r_mask * w_mask) / np.sum(w_mask)
 
     inclusive_mean = np.nanmean(ratios)
-    theory_val = 1.19  # percent
+    theory_val = theory_c1
 
     # Plotting
     fig, (ax_top, ax_bot) = plt.subplots(2, 1, sharex=True, gridspec_kw={'height_ratios': [2.5,1]}, figsize=(8,6))
@@ -213,6 +213,7 @@ def main():
     p.add_argument('--pt-max', type=float, default=300.0)
     p.add_argument('--nbins', type=int, default=30)
     p.add_argument('--process-label', default='ZH (13.6 TeV)')
+    p.add_argument('--theory-c1', type=float, default=1.19)
     p.add_argument('--vector-label', default='Z')
     args = p.parse_args()
     
@@ -242,7 +243,16 @@ def main():
         args_copy.pt_max = pt_max_var
         args_copy.nbins = nbins_var
         
-        rc = process_and_plot(args.fileA, args.fileB, varname, out_var, args_copy, process_label=args.process_label, vector_label=args.vector_label)
+        rc = process_and_plot(
+            args.fileA,
+            args.fileB,
+            varname,
+            out_var,
+            args_copy,
+            process_label=args.process_label,
+            vector_label=args.vector_label,
+            theory_c1=args.theory_c1,
+        )
         if rc != 0:
             print(f'Warning: failed to plot {varname}')
     

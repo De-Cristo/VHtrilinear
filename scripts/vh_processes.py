@@ -43,6 +43,7 @@ class PublicProcessSpec(object):
         "param_card",
         "delta_h",
         "k_ew",
+        "theory_c1_percent",
         "process_label",
         "vector_label",
         "subchannels",
@@ -57,6 +58,7 @@ class PublicProcessSpec(object):
         param_card,
         delta_h,
         k_ew,
+        theory_c1_percent,
         process_label,
         vector_label,
         subchannels,
@@ -68,6 +70,7 @@ class PublicProcessSpec(object):
         self.param_card = param_card
         self.delta_h = delta_h
         self.k_ew = k_ew
+        self.theory_c1_percent = theory_c1_percent
         self.process_label = process_label
         self.vector_label = vector_label
         self.subchannels = subchannels
@@ -82,6 +85,7 @@ PUBLIC_PROCESSES = {
         param_card="cards/zh/param_card.dat",
         delta_h=-1.536e-3,
         k_ew=0.947,
+        theory_c1_percent=1.19,
         process_label="ZH (13.6 TeV)",
         vector_label="Z",
         subchannels=(
@@ -105,6 +109,7 @@ PUBLIC_PROCESSES = {
         param_card="cards/wh/param_card.dat",
         delta_h=-1.536e-3,
         k_ew=0.947,
+        theory_c1_percent=1.03,
         process_label="WH (13.6 TeV)",
         vector_label="W",
         subchannels=(
