@@ -58,6 +58,19 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+prepare_output_tree() {
+    local root="$BASEDIR/output"
+    local public_dir="$root/$PROCESS"
+    local internal_dir="$root/_${PROCESS}_internal"
+
+    if [[ -e "$root" && ! -d "$root" ]]; then
+        echo "[✗] Output path exists but is not a directory: $root"
+        exit 1
+    fi
+
+    mkdir -p "$root" "$public_dir" "$internal_dir"
+}
+
 process_python() {
     python3 - "$@"
 }
@@ -83,6 +96,8 @@ echo "============================================="
 echo " VHtrilinear Run Pipeline"
 echo " Process: $PROCESS    Events: $NEVENTS    √s: $ECM GeV"
 echo "============================================="
+
+prepare_output_tree
 
 MG5DIR="$BASEDIR/MG5_aMC_v2_5_5"
 RWDIR="$BASEDIR/trilinear-RW"
@@ -246,7 +261,6 @@ EOF
 done
 
 if [[ "$PROCESS" == "zh" ]]; then
-    mkdir -p "$BASEDIR/output/zh"
     cp "$BASEDIR/output/_zh_internal/zh/events.lhe" "$BASEDIR/output/zh/events.lhe"
     cp "$BASEDIR/output/_zh_internal/zh/events_rwgt.lhe" "$BASEDIR/output/zh/events_rwgt.lhe"
 fi
