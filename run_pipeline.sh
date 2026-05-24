@@ -33,10 +33,12 @@ if [ -z "${APPTAINER_CONTAINER:-}" ] && [ -z "${SINGULARITY_CONTAINER:-}" ]; the
     echo "── Entering Apptainer container ──"
     APPTAINER_BIND_ARGS=()
     if [ -L "$REAL_BASEDIR/output" ]; then
-        OUTPUT_TARGET=$(readlink -f "$REAL_BASEDIR/output" 2>/dev/null || true)
-        if [ -n "$OUTPUT_TARGET" ]; then
-            mkdir -p "$OUTPUT_TARGET"
-            APPTAINER_BIND_ARGS+=(--bind "$OUTPUT_TARGET:$OUTPUT_TARGET")
+        OUTPUT_LINK_TARGET=$(readlink "$REAL_BASEDIR/output" 2>/dev/null || true)
+        OUTPUT_REAL_TARGET=$(readlink -f "$REAL_BASEDIR/output" 2>/dev/null || true)
+        if [ -n "$OUTPUT_LINK_TARGET" ] && [ -n "$OUTPUT_REAL_TARGET" ]; then
+            mkdir -p "$OUTPUT_REAL_TARGET"
+            APPTAINER_BIND_ARGS+=(--bind "$OUTPUT_REAL_TARGET:$OUTPUT_LINK_TARGET")
+            APPTAINER_BIND_ARGS+=(--bind "$OUTPUT_REAL_TARGET:$OUTPUT_REAL_TARGET")
         fi
     fi
     # Launch from the real parent directory to avoid AFS symlink issues
