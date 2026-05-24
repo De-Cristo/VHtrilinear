@@ -68,7 +68,10 @@ prepare_output_tree() {
         exit 1
     fi
 
-    mkdir -p "$root" "$public_dir" "$internal_dir"
+    if [[ ! -e "$root" ]]; then
+        mkdir -p "$root"
+    fi
+    mkdir -p "$public_dir" "$internal_dir"
 }
 
 process_python() {
