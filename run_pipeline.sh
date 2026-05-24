@@ -31,9 +31,18 @@ fi
 # ── Enter Apptainer container if not already inside ──
 if [ -z "${APPTAINER_CONTAINER:-}" ] && [ -z "${SINGULARITY_CONTAINER:-}" ]; then
     echo "── Entering Apptainer container ──"
+    APPTAINER_BIND_ARGS=()
+    if [ -L "$REAL_BASEDIR/output" ]; then
+        OUTPUT_TARGET=$(readlink -f "$REAL_BASEDIR/output" 2>/dev/null || true)
+        if [ -n "$OUTPUT_TARGET" ]; then
+            mkdir -p "$OUTPUT_TARGET"
+            APPTAINER_BIND_ARGS+=(--bind "$OUTPUT_TARGET:$OUTPUT_TARGET")
+        fi
+    fi
     # Launch from the real parent directory to avoid AFS symlink issues
     (cd "$REAL_BASEDIR/.." && \
      apptainer exec --env PATH="$PATH" --env LD_LIBRARY_PATH="${LD_LIBRARY_PATH:-}" --env PYTHONPATH="${PYTHONPATH:-}" \
+     "${APPTAINER_BIND_ARGS[@]}" \
      "$CONTAINER_IMAGE" bash "$REAL_BASEDIR/run_pipeline.sh" "$@")
     exit $?
 fi
@@ -63,12 +72,17 @@ prepare_output_tree() {
     local public_dir="$root/$PROCESS"
     local internal_dir="$root/_${PROCESS}_internal"
 
+    if [[ -L "$root" && ! -e "$root" ]]; then
+        echo "[✗] Output symlink target is not accessible: $root -> $(readlink "$root")"
+        exit 1
+    fi
+
     if [[ -e "$root" && ! -d "$root" ]]; then
         echo "[✗] Output path exists but is not a directory: $root"
         exit 1
     fi
 
-    if [[ ! -e "$root" ]]; then
+    if [[ ! -e "$root" && ! -L "$root" ]]; then
         mkdir -p "$root"
     fi
     mkdir -p "$public_dir" "$internal_dir"
