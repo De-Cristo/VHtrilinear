@@ -14,9 +14,11 @@ proc_ml
 proc_hz_me
 
 # Output artifacts
+output
 output/
 output/_wh_internal/
 output/_zh_internal/
+docs/
 
 # Python / Jupyter
 __pycache__/
